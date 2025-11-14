@@ -1,0 +1,7 @@
+[project]
+name = "space-glue"
+version = "0.1.0"
+description = " Spatial Cognition Exercises – General Language Understanding Evaluation"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
