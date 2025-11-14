@@ -1,10 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, Dict, List, Iterable, DefaultDict
+from collections import defaultdict
+
+REQUIRED_FIELDS = {"index", "item"}
 
 
 class BaseDataset(ABC):
     """
-    Abstract base class for all benchmark datasets.
+    Abstract base class for all benchmark datasets with support for subcategories.
 
     Subclasses should implement:
       - load_data()
@@ -12,66 +15,126 @@ class BaseDataset(ABC):
       - evaluate()
     """
 
-    # Use a sentinel for required class attributes so we can enforce
-    # that subclasses must provide concrete values at class-definition time.
     _REQUIRED = object()
 
-    # Required attributes (subclasses must override these)
+    # Required (subclasses must define these)
     name: str = _REQUIRED
     data_source: str = _REQUIRED
     batch_possible: bool = _REQUIRED
 
-    # Optional attributes
-    categories: Optional[List[str]] = []
+    # Optional Metadata describing all possible question types per subcategory
+    # All subcategories should be listed here.
+    # Example:
+    #   question_types = {
+    #       "math": ["algebra", "geometry"],
+    #       "coding": ["python", "debugging"]
+    #   }
+    question_types: Dict[str, List[str]] = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         required = ("name", "data_source", "batch_possible")
-        missing = [attr for attr in required if getattr(cls, attr, cls._REQUIRED) is cls._REQUIRED]
+        missing = [
+            attr
+            for attr in required
+            if getattr(cls, attr, cls._REQUIRED) is cls._REQUIRED
+        ]
+
         if missing:
-            raise TypeError(f"Class {cls.__name__} must define class attributes: {', '.join(missing)}")
+            raise TypeError(
+                f"Class {cls.__name__} must define class attributes: {', '.join(missing)}"
+            )
 
     def __init__(self):
         """
-        Args:
-            **kwargs: Optional dataset-specific arguments.
+        Loads dataset into self.data.
         """
-        self.data = self.load_data()
+        self.data: List[Dict[str, Any]] = list(self.load_data())
 
-    # ----------------------------------------------------------
-    # Abstract methods
-    # ----------------------------------------------------------
+    # ----------------------------------------------------------------------
+    # Abstract methods — subclasses implement these
+    # ----------------------------------------------------------------------
 
     @abstractmethod
     def load_data(self) -> Iterable[Dict[str, Any]]:
-        """Load the dataset and optionally filter / truncate it. 
-        Returns the dataset as an iterable of dicts."""
+        """
+        Load the dataset and optionally filter / truncate it.
+        Returns the dataset as an iterable of dicts.
+        """
         pass
 
     @abstractmethod
     def to_prompt(self, item: Dict[str, Any]) -> str:
-        """Convert a single data item into a model prompt."""
+        """
+        Convert a single data item into a model prompt.
+        """
         pass
 
     @abstractmethod
-    def evaluate(self, item: Dict[str, Any], responses: str) -> float:
+    def evaluate(self, dataset: List[Dict[str, Any]]) -> Dict[int, Any]:
         """
-        Compute the evaluation result for a model's response.
+        Evaluate using the full dataset of items + responses.
+
+        This method receives the complete dataset with responses and can use
+        context about subcategories to evaluate items differently based on their
+        category.
 
         Args:
-            item (Dict[str, Any]): The original data
-            response (str): The model's generated response
+            dataset (List[Dict[str, Any]]): list of items, each containing at least:
+                - index: int - the item index
+                - item: Dict[str, Any] - the original dataset item
+                - response: str - the model's response
+
         Returns:
-            float: The evaluation score for the response
+            Dict[int, Any]: mapping from index to score for each item
         """
         pass
 
-    # ----------------------------------------------------------
-    # Public methods
-    # ----------------------------------------------------------
+    @abstractmethod
+    def aggregate(self, dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Aggregate evaluation results across subcategories.
+
+        This method receives the full dataset including scores and computes
+        category-wise and overall statistics.
+
+        Args:
+            dataset (List[Dict[str, Any]]): list of items, each containing at least:
+                - index: int - the item index
+                - item: Dict[str, Any] - the original dataset item
+                - response: str - the model's response
+                - score: Any - the evaluation score (from evaluate())
+
+        Returns:
+            Dict[str, Any]: aggregated results, typically including overall and
+                           per-category statistics
+        """
+        pass
+
+    # ----------------------------------------------------------------------
+    # Validation logic
+    # ----------------------------------------------------------------------
+
+    def _validate_dataset_items(self, items: Iterable[Dict[str, Any]]):
+        """
+        Checks that each item contains at least the required fields.
+        """
+        validated = []
+        for i, item in enumerate(items):
+            missing = REQUIRED_FIELDS - item.keys()
+            if missing:
+                raise ValueError(
+                    f"Dataset '{self.name}' returned an item missing required fields "
+                    f"{missing}. Offending item at index {i}: {item}"
+                )
+            validated.append(item)
+        return validated
+
+    # ----------------------------------------------------------------------
+    # Utilities
+    # ----------------------------------------------------------------------
 
     def __iter__(self):
-        """Iterate over dataset items."""
         return iter(self.data)
 
     def __len__(self):
@@ -86,6 +149,6 @@ class BaseDataset(ABC):
             "name": self.name,
             "data_source": self.data_source,
             "batch_possible": self.batch_possible,
-            "categories": self.categories,
+            "question_types": self.question_types,
             "num_samples": len(self),
         }

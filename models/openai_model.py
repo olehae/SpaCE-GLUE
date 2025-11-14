@@ -3,8 +3,16 @@
 from models.openai_model import OpenAI
 from base_model import BaseModel
 
+
 class OpenAIModel(BaseModel):
-    def __init__(self, model_name: str, base_url: str, api_key: str, temperature: float = 0.7):
+    def __init__(
+        self,
+        model_name: str,
+        base_url: str,
+        api_key: str,
+        temperature: float = 0.7,
+        custom_name: str | None = None,
+    ):
         """
         Initialize an OpenAI-compatible model.
         Works with both OpenAI and local vLLM endpoints.
@@ -17,8 +25,10 @@ class OpenAIModel(BaseModel):
         """
         try:
             self.client = OpenAI(base_url=base_url, api_key=api_key)
-            self.model_name = model_name
+            self.api_name = model_name
             self.temperature = temperature
+            # Use explicit instance `name` if provided, otherwise use the model_name
+            self.name = custom_name if custom_name is not None else model_name
         except Exception as e:
             raise RuntimeError(f"Failed to initialize OpenAI client: {e}")
 
@@ -33,7 +43,7 @@ class OpenAIModel(BaseModel):
         """
         try:
             response = self.client.chat.completions.create(
-                model=self.model_name,
+                model=self.api_name,
                 temperature=self.temperature,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -57,7 +67,7 @@ class OpenAIModel(BaseModel):
             responses = []
             for prompt in user_prompts:
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
+                    model=self.api_name,
                     temperature=self.temperature,
                     messages=[
                         {"role": "system", "content": system_prompt},
