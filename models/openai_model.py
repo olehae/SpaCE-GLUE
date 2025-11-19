@@ -1,17 +1,13 @@
 # Models using OpenAI-compatible API (local or cloud)
 
-from models.openai_model import OpenAI
-from base_model import BaseModel
+from openai import OpenAI
+from typing import List
+from models.base_model import BaseModel
 
 
 class OpenAIModel(BaseModel):
     def __init__(
-        self,
-        model_name: str,
-        base_url: str,
-        api_key: str,
-        temperature: float = 0.7,
-        custom_name: str | None = None,
+        self, name: str, base_url: str, api_key: str, temperature: float = 0.7
     ):
         """
         Initialize an OpenAI-compatible model.
@@ -25,12 +21,14 @@ class OpenAIModel(BaseModel):
         """
         try:
             self.client = OpenAI(base_url=base_url, api_key=api_key)
-            self.api_name = model_name
+            self._name = name
             self.temperature = temperature
-            # Use explicit instance `name` if provided, otherwise use the model_name
-            self.name = custom_name if custom_name is not None else model_name
         except Exception as e:
             raise RuntimeError(f"Failed to initialize OpenAI client: {e}")
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def generate_single(self, user_prompt: str, system_prompt: str) -> str:
         """
@@ -43,7 +41,7 @@ class OpenAIModel(BaseModel):
         """
         try:
             response = self.client.chat.completions.create(
-                model=self.api_name,
+                model=self._name,
                 temperature=self.temperature,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -54,7 +52,7 @@ class OpenAIModel(BaseModel):
         except Exception as e:
             raise RuntimeError(f"OpenAI generation failed: {e}")
 
-    def generate_batch(self, user_prompts: list, system_prompt: str) -> list:
+    def generate_batch(self, user_prompts: List[str], system_prompt: str) -> List[str]:
         """
         Generate multiple responses using the same system prompt but varying user prompts.
         Args:
@@ -67,7 +65,7 @@ class OpenAIModel(BaseModel):
             responses = []
             for prompt in user_prompts:
                 response = self.client.chat.completions.create(
-                    model=self.api_name,
+                    model=self._name,
                     temperature=self.temperature,
                     messages=[
                         {"role": "system", "content": system_prompt},

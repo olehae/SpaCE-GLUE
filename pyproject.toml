@@ -3,5 +3,12 @@ name = "space-glue"
 version = "0.1.0"
 description = " Spatial Cognition Exercises – General Language Understanding Evaluation"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "openai>=2.8.1",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+space-glue = "space_glue.cli:main"

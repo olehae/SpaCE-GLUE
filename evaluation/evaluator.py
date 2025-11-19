@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List
 class Evaluator:
     """Run a dataset through a model, store results, and resume interrupted runs.
 
-    Results are stored as JSON Lines in `results/<dataset.name>_<model_name>.jsonl`.
+    Results are stored as JSON Lines in `results/<dataset.name>_<model.name>.jsonl`.
     Each entry contains at minimum: `index`, `prompt`, and `response`.
     """
 
@@ -19,13 +19,7 @@ class Evaluator:
         return "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in name)
 
     def _result_path(self, dataset, model) -> Path:
-        dataset_name = self._sanitize_name(
-            str(getattr(dataset, "name", dataset.__class__.__name__))
-        )
-        model_name = self._sanitize_name(
-            str(getattr(model, "name", model.__class__.__name__))
-        )
-        fname = f"{dataset_name}_{model_name}.jsonl"
+        fname = f"{dataset.name}_{model.name}.jsonl"
         return self.results_dir / fname
 
     def _load_done_indices(self, path: Path) -> set:

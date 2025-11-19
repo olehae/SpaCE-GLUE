@@ -1,27 +1,29 @@
 # Models from Huggingface using vLLM for local inference
 
-from models.vllm_model import LLM, SamplingParams
-from base_model import BaseModel
+from vllm import LLM, SamplingParams
+from typing import List
+from models.base_model import BaseModel
 
 
 class VLLMModel(BaseModel):
-    def __init__(
-        self, hf_name: str, temperature: float = 0.7, custom_name: str | None = None
-    ):
+    def __init__(self, name: str, temperature: float = 0.7):
         """
         Initialize a vLLM-based model for local inference.
 
         Args:
-            model_name (str): Hugging Face model name (e.g., "meta-llama/Llama-3-8B-Instruct")
+            name (str): Hugging Face model name (e.g., "meta-llama/Llama-3-8B-Instruct")
             temperature (float): Sampling temperature (default 0.7)
         """
         try:
-            self.model_name = hf_name
+            self.model = LLM(model=name)
+            self._name = name
             self.temperature = temperature
-            self.model = LLM(model=hf_name)
-            self.name = custom_name if custom_name is not None else hf_name
         except Exception as e:
-            raise RuntimeError(f"Failed to load model {hf_name} with vLLM: {e}")
+            raise RuntimeError(f"Failed to load model {name} with vLLM: {e}")
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def generate_single(self, user_prompt: str, system_prompt: str) -> str:
         """
@@ -43,7 +45,7 @@ class VLLMModel(BaseModel):
         except Exception as e:
             raise RuntimeError(f"vLLM single generation failed: {e}")
 
-    def generate_batch(self, user_prompts: list, system_prompt: str) -> list:
+    def generate_batch(self, user_prompts: List[str], system_prompt: str) -> List[str]:
         """
         Generate multiple responses using the same system prompt but varying user prompts.
         Args:
