@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Iterable, DefaultDict
-from collections import defaultdict
+from typing import Any, Dict, List, Iterable, final
 
 REQUIRED_FIELDS = {"index", "item"}
 
@@ -24,11 +23,7 @@ class BaseDataset(ABC):
 
     # Optional Metadata describing all possible question types per subcategory
     # All subcategories should be listed here.
-    # Example:
-    #   question_types = {
-    #       "math": ["algebra", "geometry"],
-    #       "coding": ["python", "debugging"]
-    #   }
+
     question_types: Dict[str, List[str]] = {}
 
     def __init_subclass__(cls, **kwargs):
@@ -44,19 +39,29 @@ class BaseDataset(ABC):
             raise TypeError(
                 f"Class {cls.__name__} must define class attributes: {', '.join(missing)}"
             )
+        # Prevent subclasses from overriding __init__ so that BaseDataset
+        # always performs data loading and validation.
+        if "__init__" in cls.__dict__:
+            raise TypeError(
+                f"Class {cls.__name__} must not override `__init__`. "
+                "Implement `load_data` and other abstract methods instead; "
+                "BaseDataset.__init__ handles data loading and validation."
+            )
 
-    def __init__(self):
+    @final
+    def __init__(self, **kwargs):
         """
         Loads dataset into self.data.
         """
-        self.data: List[Dict[str, Any]] = list(self.load_data())
+        self.data: List[Dict[str, Any]] = list(self.load_data(**kwargs))
+        self._validate_dataset_items()
 
     # ----------------------------------------------------------------------
     # Abstract methods — subclasses implement these
     # ----------------------------------------------------------------------
 
     @abstractmethod
-    def load_data(self) -> Iterable[Dict[str, Any]]:
+    def load_data(self, **kwargs) -> Iterable[Dict[str, Any]]:
         """
         Load the dataset and optionally filter / truncate it.
         Returns the dataset as an iterable of dicts.
@@ -115,20 +120,17 @@ class BaseDataset(ABC):
     # Validation logic
     # ----------------------------------------------------------------------
 
-    def _validate_dataset_items(self, items: Iterable[Dict[str, Any]]):
+    def _validate_dataset_items(self):
         """
         Checks that each item contains at least the required fields.
         """
-        validated = []
-        for i, item in enumerate(items):
+        for i, item in enumerate(self.data):
             missing = REQUIRED_FIELDS - item.keys()
             if missing:
                 raise ValueError(
                     f"Dataset '{self.name}' returned an item missing required fields "
                     f"{missing}. Offending item at index {i}: {item}"
                 )
-            validated.append(item)
-        return validated
 
     # ----------------------------------------------------------------------
     # Utilities
