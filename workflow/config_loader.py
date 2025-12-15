@@ -54,19 +54,6 @@ def _validate_and_normalize_config(config: Dict[str, Any]) -> Dict[str, Any]:
     - Performs basic type checks and raises `ValueError` with a helpful message
       if something's incorrect.
     """
-    # Define defaults
-    EVAL_DEFAULTS = {
-        "results_dir": "results",
-        "save_every": 50,
-        "batch_size": 1,
-        "inference": True,
-        "scoring": True,
-    }
-    LOG_DEFAULTS = {
-        "level": "INFO",
-        "format": "%(asctime)s - %(levelname)s - %(message)s",
-        "file": None,
-    }
 
     # required top-level sections
     if "model" not in config:
@@ -116,6 +103,13 @@ def _validate_and_normalize_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config["datasets"] = normalized_datasets
 
     # evaluation defaults & types
+    EVAL_DEFAULTS = {
+        "results_dir": "results",
+        "batch_size": 1,
+        "inference": True,
+        "scoring": True,
+        "runs": [1] * len(normalized_datasets),
+    }
     evaluation = config.get("evaluation", False)
     if evaluation:
         _check_instance("evaluation", evaluation, dict)
@@ -123,6 +117,16 @@ def _validate_and_normalize_config(config: Dict[str, Any]) -> Dict[str, Any]:
         for k, v in EVAL_DEFAULTS.items():
             if k in evaluation:
                 _check_instance(f"evaluation.{k}", evaluation[k], type(v))
+                # Check that 'runs' list has appropriate length and types
+                if k == "runs":
+                    if len(evaluation[k]) != len(normalized_datasets):
+                        raise ValueError(
+                            f"'evaluation.runs' must have length equal to number of datasets "
+                            f"({len(normalized_datasets)}), but has length {len(evaluation[k])}"
+                        )
+                    # check that each entry is int
+                    for i, run_count in enumerate(evaluation[k]):
+                        _check_instance(f"evaluation.runs[{i}]", run_count, int)
             else:
                 evaluation[k] = v
         config["evaluation"] = evaluation
@@ -130,6 +134,11 @@ def _validate_and_normalize_config(config: Dict[str, Any]) -> Dict[str, Any]:
         config["evaluation"] = EVAL_DEFAULTS
 
     # logging defaults & types
+    LOG_DEFAULTS = {
+        "level": "INFO",
+        "format": "%(asctime)s - %(levelname)s - %(message)s",
+        "file": None,
+    }
     logging = config.get("logging", False)
     if logging:
         _check_instance("logging", logging, dict)

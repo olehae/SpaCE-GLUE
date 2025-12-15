@@ -53,8 +53,8 @@ datasets:
 - Type: mapping/dict
 - Defaults:
   - `results_dir`: string, default: "results"
-  - `save_every`: int, default: 50
   - `batch_size`: int, default: 1
+  - `runs`: list[int], default: [1] * len(datasets)
   - `inference`: Bool flag; default `true`.
   - `scoring`: Bool flag; default `true`.
 
@@ -63,8 +63,8 @@ Example:
 ```yaml
 evaluation:
   results_dir: "my_results"
-  save_every: 10
   batch_size: 1
+  runs: [3]
   inference: false
   scoring: true
 ```

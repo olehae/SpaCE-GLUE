@@ -69,7 +69,6 @@ def run_workflow(config_path: str = "config.yaml"):
     eval_config = config.get("evaluation", {})
     evaluator = Evaluator(
         results_dir=eval_config.get("results_dir", "results"),
-        save_every=eval_config.get("save_every", 50),
     )
     inference = eval_config.get("inference", True)
     scoring = eval_config.get("scoring", True)
@@ -84,7 +83,7 @@ def run_workflow(config_path: str = "config.yaml"):
     logger.info(f"Model loaded: {model.name}")
 
     # Load and process datasets
-    for dataset_config in config["datasets"]:
+    for i, dataset_config in enumerate(config["datasets"]):
         logger.info(f"Loading dataset from {dataset_config['class']}")
 
         dataset_params = dataset_config.get("params", {})
@@ -94,28 +93,24 @@ def run_workflow(config_path: str = "config.yaml"):
 
         # Inference
         if inference:
-            try:
-                logger.info(f"Running inference on {dataset.name}")
-                summary = evaluator.inference(
-                    dataset=dataset,
-                    model=model,
-                    batch_size=eval_config.get("batch_size", 1),
-                )
-                logger.info(
-                    f"Inference complete: {summary['written']} items in {summary['results_path']}"
-                )
-            except Exception as e:
-                logger.warning(f"Could not run inference on {dataset.name}: {e}")
+            logger.info(f"Running inference on {dataset.name}")
+            summary = evaluator.inference(
+                dataset=dataset,
+                model=model,
+                batch_size=eval_config.get("batch_size", 1),
+                system_prompt=dataset.system_prompt,
+                runs=eval_config["runs"][i],
+            )
+            logger.info(
+                f"Inference complete: {summary['written']} items written to {summary['results_path']}"
+            )
 
         # Scoring
         if scoring:
-            try:
-                logger.info(f"Scoring results for {dataset.name}")
-                summary = evaluator.score_results(dataset=dataset, model=model)
-                logger.info(
-                    f"Scoring complete: {summary['num_scored']} items in {summary['results_path']}"
-                )
-            except Exception as e:
-                logger.warning(f"Could not score results for {dataset.name}: {e}")
+            logger.info(f"Scoring results for {dataset.name}")
+            summary = evaluator.score_results(dataset=dataset, model=model)
+            logger.info(
+                f"Scoring complete: {summary['num_scored']} items in {summary['results_path']}"
+            )
 
     logger.info("SpaCE-GLUE Workflow completed")

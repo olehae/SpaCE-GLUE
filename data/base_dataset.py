@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Iterable, final
 
-REQUIRED_FIELDS = {"index", "item"}
+REQUIRED_FIELDS = {"index"}
 
 
 class BaseDataset(ABC):
@@ -22,9 +22,10 @@ class BaseDataset(ABC):
     batch_possible: bool = _REQUIRED
 
     # Optional Metadata describing all possible question types per subcategory
-    # All subcategories should be listed here.
-
+    # All subcategories should be listed here. If not applicable, can be left empty.
     question_types: Dict[str, List[str]] = {}
+    # Optional system prompt for the dataset
+    system_prompt: str = ""
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -45,7 +46,6 @@ class BaseDataset(ABC):
             raise TypeError(
                 f"Class {cls.__name__} must not override `__init__`. "
                 "Implement `load_data` and other abstract methods instead; "
-                "BaseDataset.__init__ handles data loading and validation."
             )
 
     @final
@@ -152,5 +152,6 @@ class BaseDataset(ABC):
             "data_source": self.data_source,
             "batch_possible": self.batch_possible,
             "question_types": self.question_types,
+            "system_prompt": self.system_prompt,
             "num_samples": len(self),
         }
