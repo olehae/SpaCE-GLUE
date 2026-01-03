@@ -56,7 +56,7 @@ class Evaluator:
             dataset: iterable of items (dataset should expose `.name` attribute)
             model: model instance implementing `generate_single` and/or `generate_batch`
             batch_size: how many prompts to send at once (use >1 only if dataset.batch_possible)
-            system_prompt: system prompt to pass to the model
+            system_prompt: system prompt to pass to the model, unless overridden per-item
             runs: number of times to run each item through the model
 
         Returns:
@@ -82,55 +82,50 @@ class Evaluator:
             dataset_length = None
         written = 0
 
-        # Buffer for batch mode
-        batch_items: List[Dict[str, Any]] = []
+        # Check if model and dataset support batch mode and it's requested
+        batch_possible = (
+            getattr(dataset, "batch_possible", False)
+            and batch_size > 1
+            and hasattr(model, "generate_batch")
+            and callable(getattr(model, "generate_batch"))
+        )
 
         with results_path.open("a", encoding="utf-8") as out_file:
-            for item in track(
-                dataset,
-                total=dataset_length,
-                description=f"Running inference for {dataset.name}",
-            ):
-                # All runs completed for this item
-                if item["index"] in done:
-                    continue
+            # Single-item mode
+            if not batch_possible:
+                for item in track(
+                    dataset,
+                    total=dataset_length,
+                    description=f"Running inference for {dataset.name}",
+                ):
+                    # All runs completed for this item
+                    if item["index"] in done:
+                        continue
 
-                try:
-                    prompt = dataset.to_prompt(item)
-                except Exception as e:
-                    raise RuntimeError(f"index={item['index']}: to_prompt error: {e}")
+                    try:
+                        prompt = dataset.to_prompt(item)
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"index={item['index']}: to_prompt error: {e}"
+                        )
 
-                # Batch mode
-                if getattr(dataset, "batch_possible", False) and batch_size > 1:
-                    batch_items.append(item)
+                    # Get system prompt for this item (custom or global)
+                    item_system_prompt = item.get("system_prompt", system_prompt)
 
-                    if len(batch_items) >= batch_size:
-                        resps = []
-                        for _ in range(runs):
-                            try:
-                                resp = model.generate_batch(
-                                    [dataset.to_prompt(item) for item in batch_items],
-                                    system_prompt=system_prompt,
-                                )
-                                resps.append(resp)
-                            except Exception as e:
-                                raise RuntimeError(
-                                    f"items={batch_items}: generate_batch error: {e!s}"
-                                )
+                    # Get one-shot example if present
+                    one_shot = item.get("one_shot", None)
 
-                            # TODO: store batch results efficiently
-                            out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
-                            written += 1  # TODO: adjust written count for batch
-                        out_file.flush()
-                        batch_items.clear()
+                    # Get answer options if present
+                    answer_options = item.get("options", None)
 
-                # Single-item mode
-                else:
                     resps = []
                     for _ in range(runs):
                         try:
                             resp = model.generate_single(
-                                prompt, system_prompt=system_prompt
+                                prompt,
+                                system_prompt=item_system_prompt,
+                                one_shot=one_shot,
+                                answer_options=answer_options,
                             )
                             resps.append(resp)
                         except Exception as e:
@@ -138,32 +133,32 @@ class Evaluator:
                                 f"index={item['index']}: generate_single error: {e}"
                             )
 
-                    entry = {
-                        "index": item["index"],
-                        "responses": resps,
-                    }
+                    # Copy all original item data and add responses
+                    entry = {**item, "responses": resps}
                     # write the successful single response
                     out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
                     out_file.flush()
                     written += 1
 
-        # leftover batch if any
-        if batch_items:
-            with results_path.open("a", encoding="utf-8") as out_file:
-                resps = []
-                for _ in range(runs):
-                    try:
-                        resp = model.generate_batch(
-                            [dataset.to_prompt(item) for item in batch_items],
-                            system_prompt=system_prompt,
-                        )
-                        resps.append(resp)
-                    except Exception as e:
-                        raise RuntimeError(
-                            f"items={batch_items}: generate_batch error: {e}"
-                        )
+            # Batch mode
+            else:
+                resps = model.generate_batch(
+                    dataset,
+                    system_prompt=system_prompt,
+                    batch_size=batch_size,
+                    runs=runs,
+                )
+                for item, item_resps in zip(dataset, resps):
+                    # All runs completed for this item
+                    if item["index"] in done:
+                        continue
 
-                # TODO: store batch results efficiently
+                    # Copy all original item data and add responses
+                    entry = {**item, "responses": item_resps}
+                    # write the successful single response
+                    out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                    out_file.flush()
+                    written += 1
 
         summary = {
             "results_path": str(results_path),
@@ -219,24 +214,14 @@ class Evaluator:
         if not dataset_items:
             raise ValueError(f"No valid entries found in {results_path}")
 
-        # Call dataset.evaluate() with full dataset to get per-item scores
-        try:
-            eval_results = dataset.evaluate(dataset_items)
-        except Exception as e:
-            raise RuntimeError(f"Dataset evaluate error: {e}")
-
-        # eval_results should be a dict mapping index -> score
-        if not isinstance(eval_results, dict):
-            raise ValueError(
-                f"dataset.evaluate() must return a dict, got {type(eval_results)}"
-            )
-
         # Add scores to dataset_items
         for item in dataset_items:
-            idx = item["index"]
-            if idx not in eval_results:
-                raise ValueError(f"Missing score for index {idx} in evaluation results")
-            item["scores"] = eval_results[idx]
+            try:
+                item["scores"] = dataset.evaluate(item)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Dataset evaluate error for item {item['index']}: {e}"
+                )
 
         # Rewrite the results file with scores included
         with results_path.open("w", encoding="utf-8") as out_file:

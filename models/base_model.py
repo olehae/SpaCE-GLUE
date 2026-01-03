@@ -17,20 +17,26 @@ class BaseModel(ABC):
 
     @abstractmethod
     def generate_single(
-        self, user_prompt: str, system_prompt: str = "You are a helpful assistant."
+        self,
+        user_prompt: str,
+        system_prompt: str = "You are a helpful assistant.",
+        one_shot: dict = None,
+        answer_options: List[str] = None,
     ) -> str:
         """
-        Generate a single response given a `user_prompt` and `system_prompt`.
+        Generate a single response given a `user_prompt`, `system_prompt`, optional `one_shot` example, and optional `answer_options`.
         """
         pass
 
     @abstractmethod
     def generate_batch(
         self,
-        user_prompts: List[str],
-        system_prompt: str = "You are a helpful assistant.",
+        dataset: List[dict],
+        system_prompt: str,
+        batch_size: int = 1,
+        runs: int = 1,
     ) -> List[str]:
         """
-        Return a list of generated responses for `user_prompts`.
+        Return a list of generated responses for `dataset`.
         """
         pass

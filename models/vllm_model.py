@@ -45,21 +45,14 @@ class VLLMModel(BaseModel):
         except Exception as e:
             raise RuntimeError(f"vLLM single generation failed: {e}")
 
-    def generate_batch(self, user_prompts: List[str], system_prompt: str) -> List[str]:
+    def generate_batch(
+        self,
+        dataset: List[dict],
+        system_prompt: str,
+        batch_size: int = 1,
+        runs: int = 1,
+    ) -> List[str]:
         """
-        Generate multiple responses using the same system prompt but varying user prompts.
-        Args:
-            user_prompts (list): List of user prompts
-            system_prompt (str): The system prompt
-        Returns:
-            list: List of generated responses
+        Return a list of generated responses for `dataset`.
         """
-        try:
-            sampling_params = SamplingParams(temperature=self.temperature)
-            full_prompts = [
-                f"{system_prompt}\n\nUser: {p}\nAssistant:" for p in user_prompts
-            ]
-            outputs = self.model.generate(full_prompts, sampling_params=sampling_params)
-            return [out.outputs[0].text.strip() for out in outputs]
-        except Exception as e:
-            raise RuntimeError(f"vLLM batch generation failed: {e}")
+        raise NotImplementedError("Batch generation not implemented for VLLMModel.")
