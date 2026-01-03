@@ -51,17 +51,34 @@ class BaseDataset(ABC):
     @final
     def __init__(self, **kwargs):
         """
-        Loads dataset into self.data.
+        Loads dataset into self.data, then calls setup() for additional initialization.
         """
+        self.setup(**kwargs)
         self.data: List[Dict[str, Any]] = list(self.load_data(**kwargs))
         self._validate_dataset_items()
 
     # ----------------------------------------------------------------------
-    # Abstract methods — subclasses implement these
+    # Initialization hook — subclasses can optionally override this
+    # ----------------------------------------------------------------------
+
+    def setup(self, **kwargs):
+        """
+        Optional setup method.
+        This method is called after load_data() and validation, allowing
+        subclasses to initialize custom attributes or perform other setup
+        without overriding __init__.
+
+        Args:
+            **kwargs: All keyword arguments passed to __init__
+        """
+        pass
+
+    # ----------------------------------------------------------------------
+    # Abstract methods — subclasses must implement these
     # ----------------------------------------------------------------------
 
     @abstractmethod
-    def load_data(self, **kwargs) -> Iterable[Dict[str, Any]]:
+    def load_data(self) -> Iterable[Dict[str, Any]]:
         """
         Load the dataset and optionally filter / truncate it.
         Returns the dataset as an iterable of dicts.
@@ -76,22 +93,17 @@ class BaseDataset(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, dataset: List[Dict[str, Any]]) -> Dict[int, Any]:
+    def evaluate(self, item: Dict[str, Any]) -> List[Any]:
         """
-        Evaluate using the full dataset of items + responses.
-
-        This method receives the complete dataset with responses and can use
-        context about subcategories to evaluate items differently based on their
-        category.
+        Evaluates the model's responses against the ground truth answers.
 
         Args:
-            dataset (List[Dict[str, Any]]): list of items, each containing at least:
+            item (Dict[str, Any]): a single item containing at least:
                 - index: int - the item index
-                - item: Dict[str, Any] - the original dataset item
-                - response: str - the model's response
+                - responses: List[Any] - list of model responses
 
         Returns:
-            Dict[int, Any]: mapping from index to score for each item
+            List[Any]: evaluation scores for each response to the item
         """
         pass
 
@@ -106,13 +118,11 @@ class BaseDataset(ABC):
         Args:
             dataset (List[Dict[str, Any]]): list of items, each containing at least:
                 - index: int - the item index
-                - item: Dict[str, Any] - the original dataset item
-                - response: str - the model's response
-                - score: Any - the evaluation score (from evaluate())
+                - responses: List[Any] - list of model responses
+                - scores: List[Any] - the evaluation scores (from evaluate())
 
         Returns:
-            Dict[str, Any]: aggregated results, typically including overall and
-                           per-category statistics
+            Dict[str, Any]: aggregated results, e.g., overall accuracy
         """
         pass
 
