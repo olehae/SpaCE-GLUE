@@ -1,8 +1,9 @@
 # Models using OpenAI-compatible API with vLLM structured output capabilities
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from typing import List
 from models.base_model import BaseModel
+import asyncio
 
 
 class OpenAIModel(BaseModel):
@@ -26,7 +27,7 @@ class OpenAIModel(BaseModel):
             reasoning_effort (str, optional): Reasoning effort level (e.g., "low", "medium", "high")
         """
         try:
-            self.client = OpenAI(base_url=base_url, api_key=api_key)
+            self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
             self._name = name
             self.temperature = temperature
             self.reasoning_effort = reasoning_effort
@@ -37,7 +38,7 @@ class OpenAIModel(BaseModel):
     def name(self) -> str:
         return self._name
 
-    def generate_single(
+    async def generate_single(
         self,
         user_prompt: str,
         system_prompt: str,
@@ -84,19 +85,7 @@ class OpenAIModel(BaseModel):
                 kwargs["extra_body"] = extra_body
 
             # Make API call
-            response = self.client.chat.completions.create(**kwargs)
+            response = await self.client.chat.completions.create(**kwargs)
             return response.choices[0].message.content.strip()
         except Exception as e:
             raise RuntimeError(f"OpenAI generation failed: {e}")
-
-    def generate_batch(
-        self,
-        dataset: List[dict],
-        system_prompt: str,
-        batch_size: int = 1,
-        runs: int = 1,
-    ) -> List[str]:
-        """
-        Return a list of generated responses for `dataset`.
-        """
-        raise NotImplementedError("Batch generation not implemented for OpenAIModel.")

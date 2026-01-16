@@ -44,15 +44,3 @@ class VLLMModel(BaseModel):
             return outputs[0].outputs[0].text.strip()
         except Exception as e:
             raise RuntimeError(f"vLLM single generation failed: {e}")
-
-    def generate_batch(
-        self,
-        dataset: List[dict],
-        system_prompt: str,
-        batch_size: int = 1,
-        runs: int = 1,
-    ) -> List[str]:
-        """
-        Return a list of generated responses for `dataset`.
-        """
-        raise NotImplementedError("Batch generation not implemented for VLLMModel.")

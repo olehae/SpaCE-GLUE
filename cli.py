@@ -1,6 +1,7 @@
 import argparse
 from workflow.runner import run_workflow
 import sys
+import asyncio
 
 
 def main(argv=None):
@@ -10,7 +11,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        run_workflow(config_path=args.config)
+        asyncio.run(run_workflow(config_path=args.config))
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)

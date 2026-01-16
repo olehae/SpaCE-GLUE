@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 from rich.progress import track
+import asyncio
 
 
 class Evaluator:
@@ -44,7 +45,7 @@ class Evaluator:
             return set()
         return done
 
-    def inference(
+    async def inference(
         self,
         dataset: Iterable[Dict[str, Any]],
         model: Any,
@@ -123,8 +124,8 @@ class Evaluator:
                     resps = []
                     for _ in range(runs):
                         try:
-                            resp = model.generate_single(
-                                prompt,
+                            resp = await model.generate_single(
+                                user_prompt=prompt,
                                 system_prompt=item_system_prompt,
                                 one_shot=one_shot,
                                 answer_options=answer_options,
@@ -144,23 +145,61 @@ class Evaluator:
 
             # Batch mode
             else:
-                resps = model.generate_batch(
+                tasks = []
+                items = []
+                # give batch_size * runs to the model at once
+                for item in track(
                     dataset,
-                    system_prompt=system_prompt,
-                    batch_size=batch_size,
-                    runs=runs,
-                )
-                for item, item_resps in zip(dataset, resps):
+                    total=dataset_length,
+                    description=f"Running inference for {dataset.name} (batch mode)",
+                ):
                     # All runs completed for this item
                     if item["index"] in done:
                         continue
 
-                    # Copy all original item data and add responses
-                    entry = {**item, "responses": item_resps}
-                    # write the successful single response
-                    out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
-                    out_file.flush()
-                    written += 1
+                    try:
+                        prompt = dataset.to_prompt(item)
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"index={item['index']}: to_prompt error: {e}"
+                        )
+
+                    # Get system prompt for this item (custom or global)
+                    item_system_prompt = item.get("system_prompt", system_prompt)
+
+                    # Get one-shot example if present
+                    one_shot = item.get("one_shot", None)
+
+                    # Get answer options if present
+                    answer_options = item.get("options", None)
+
+                    tasks.extend(
+                        [
+                            {
+                                "user_prompt": prompt,
+                                "system_prompt": item_system_prompt,
+                                "one_shot": one_shot,
+                                "answer_options": answer_options,
+                            }
+                        ]
+                        * runs
+                    )
+
+                    items.append(item)
+
+                    if len(tasks) >= batch_size * runs:
+                        coros = [model.generate_single(**task) for task in tasks]
+                        results = await asyncio.gather(*coros)
+                        for i, b_item in enumerate(items):
+                            item_resps = results[i * runs : (i + 1) * runs]
+                            # Copy all original item data and add responses
+                            entry = {**b_item, "responses": item_resps}
+                            # write the successful single response
+                            out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                            out_file.flush()
+                            written += 1
+                        tasks = []
+                        items = []
 
         summary = {
             "results_path": str(results_path),

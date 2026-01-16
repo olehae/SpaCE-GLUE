@@ -52,7 +52,7 @@ def load_class(class_path: str, **kwargs) -> Any:
     return cls(**kwargs)
 
 
-def run_workflow(config_path: str = "config.yaml"):
+async def run_workflow(config_path: str = "config.yaml"):
     """Run the evaluation workflow.
 
     Args:
@@ -95,7 +95,7 @@ def run_workflow(config_path: str = "config.yaml"):
             # Inference
             if inference:
                 logger.info(f"Running inference on {dataset.name}")
-                summary = evaluator.inference(
+                summary = await evaluator.inference(
                     dataset=dataset,
                     model=model,
                     batch_size=eval_config.get("batch_size", 1),
