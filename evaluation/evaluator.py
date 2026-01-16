@@ -19,7 +19,9 @@ class Evaluator:
         return "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in name)
 
     def _result_path(self, dataset, model) -> Path:
-        fname = f"{dataset.name}_{model.name}.jsonl"
+        dataset_name = self._sanitize_name(dataset.name)
+        model_name = self._sanitize_name(model.name)
+        fname = f"{dataset_name}_{model_name}.jsonl"
         return self.results_dir / fname
 
     def _load_done_indices(self, path: Path) -> set:

@@ -7,7 +7,12 @@ from models.base_model import BaseModel
 
 class OpenAIModel(BaseModel):
     def __init__(
-        self, name: str, base_url: str, api_key: str, temperature: float = 0.7
+        self,
+        name: str,
+        base_url: str,
+        api_key: str,
+        temperature: float = None,
+        reasoning_effort: str = None,
     ):
         """
         Initialize an OpenAI-compatible model.
@@ -17,12 +22,14 @@ class OpenAIModel(BaseModel):
             model_name (str): Model name
             base_url (str): Base URL for the API endpoint
             api_key (str): API key for authentication
-            temperature (float): Sampling temperature (default 0.7)
+            temperature (float, optional): Sampling temperature
+            reasoning_effort (str, optional): Reasoning effort level (e.g., "low", "medium", "high")
         """
         try:
             self.client = OpenAI(base_url=base_url, api_key=api_key)
             self._name = name
             self.temperature = temperature
+            self.reasoning_effort = reasoning_effort
         except Exception as e:
             raise RuntimeError(f"Failed to initialize OpenAI client: {e}")
 
@@ -59,19 +66,25 @@ class OpenAIModel(BaseModel):
             # Add the actual user prompt
             messages.append({"role": "user", "content": user_prompt})
 
+            # Build extra_body dict conditionally
+            extra_body = {}
             if answer_options:
-                response = self.client.chat.completions.create(
-                    model=self._name,
-                    temperature=self.temperature,
-                    messages=messages,
-                    extra_body={"guided_choice": answer_options},
-                )
-            else:
-                response = self.client.chat.completions.create(
-                    model=self._name,
-                    temperature=self.temperature,
-                    messages=messages,
-                )
+                extra_body["structured_outputs"] = {"choice": answer_options}
+            if self.reasoning_effort:
+                extra_body["reasoning_effort"] = self.reasoning_effort
+
+            # Build kwargs for API call
+            kwargs = {
+                "model": self._name,
+                "messages": messages,
+            }
+            if self.temperature is not None:
+                kwargs["temperature"] = self.temperature
+            if extra_body:
+                kwargs["extra_body"] = extra_body
+
+            # Make API call
+            response = self.client.chat.completions.create(**kwargs)
             return response.choices[0].message.content.strip()
         except Exception as e:
             raise RuntimeError(f"OpenAI generation failed: {e}")

@@ -84,33 +84,38 @@ def run_workflow(config_path: str = "config.yaml"):
 
     # Load and process datasets
     for i, dataset_config in enumerate(config["datasets"]):
-        logger.info(f"Loading dataset from {dataset_config['class']}")
+        try:
+            logger.info(f"Loading dataset from {dataset_config['class']}")
 
-        dataset_params = dataset_config.get("params", {})
-        dataset = load_class(dataset_config["class"], **dataset_params)
+            dataset_params = dataset_config.get("params", {})
+            dataset = load_class(dataset_config["class"], **dataset_params)
 
-        logger.info(f"Dataset loaded: {dataset.name} ({len(dataset)} items)")
+            logger.info(f"Dataset loaded: {dataset.name} ({len(dataset)} items)")
 
-        # Inference
-        if inference:
-            logger.info(f"Running inference on {dataset.name}")
-            summary = evaluator.inference(
-                dataset=dataset,
-                model=model,
-                batch_size=eval_config.get("batch_size", 1),
-                system_prompt=dataset.system_prompt,
-                runs=eval_config["runs"][i],
-            )
-            logger.info(
-                f"Inference complete: {summary['written']} items written to {summary['results_path']}"
-            )
+            # Inference
+            if inference:
+                logger.info(f"Running inference on {dataset.name}")
+                summary = evaluator.inference(
+                    dataset=dataset,
+                    model=model,
+                    batch_size=eval_config.get("batch_size", 1),
+                    system_prompt=dataset.system_prompt,
+                    runs=eval_config["runs"][i],
+                )
+                logger.info(
+                    f"Inference complete: {summary['written']} items written to {summary['results_path']}"
+                )
 
-        # Scoring
-        if scoring:
-            logger.info(f"Scoring results for {dataset.name}")
-            summary = evaluator.score_results(dataset=dataset, model=model)
-            logger.info(
-                f"Scoring complete: {summary['num_scored']} items in {summary['results_path']}"
-            )
+            # Scoring
+            if scoring:
+                logger.info(f"Scoring results for {dataset.name}")
+                summary = evaluator.score_results(dataset=dataset, model=model)
+                logger.info(
+                    f"Scoring complete: {summary['num_scored']} items in {summary['results_path']}"
+                )
+        except Exception as e:
+            logger.error(f"Error processing dataset {dataset_config['class']}: {e}")
+            logger.info(f"Skipping dataset and continuing with next one")
+            continue
 
     logger.info("SpaCE-GLUE Workflow completed")

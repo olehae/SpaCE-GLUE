@@ -38,7 +38,7 @@ class SpatialEval(BaseDataset):
 
             # Get 125 items per task (to have total of 500) and redo indexing
             index = 0
-            with open("spatialeval.jsonl", "w", encoding="utf-8") as f:
+            with open(self.data_source, "w", encoding="utf-8") as f:
                 for task in tasks:
                     task_items = ds.filter(lambda x: x["id"].startswith(task)).select(
                         range(125)
