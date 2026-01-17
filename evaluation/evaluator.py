@@ -50,7 +50,7 @@ class Evaluator:
         dataset: Iterable[Dict[str, Any]],
         model: Any,
         batch_size: int = 1,
-        system_prompt: str = "You are a helpful assistant.",
+        system_prompt: str = None,
         runs: int = 1,
     ) -> Dict[str, Any]:
         """Run inference.
@@ -84,6 +84,14 @@ class Evaluator:
         except Exception:
             dataset_length = None
         written = 0
+
+        system_prompt = (
+            (
+                system_prompt
+                if system_prompt is not None
+                else "You are a helpful assistant."
+            ),
+        )
 
         # Check if model and dataset support batch mode and it's requested
         batch_possible = (
@@ -200,6 +208,18 @@ class Evaluator:
                             written += 1
                         tasks = []
                         items = []
+                # process any remaining items
+                if tasks:
+                    coros = [model.generate_single(**task) for task in tasks]
+                    results = await asyncio.gather(*coros)
+                    for i, b_item in enumerate(items):
+                        item_resps = results[i * runs : (i + 1) * runs]
+                        # Copy all original item data and add responses
+                        entry = {**b_item, "responses": item_resps}
+                        # write the successful single response
+                        out_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                        out_file.flush()
+                        written += 1
 
         summary = {
             "results_path": str(results_path),

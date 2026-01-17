@@ -13,7 +13,9 @@ class RoomSpace(BaseDataset):
     data_source: str = "data/roomspace_data.jsonl"
     batch_possible: bool = True
 
-    system_prompt: str = None
+    system_prompt: str = (
+        "Analyze the spatial relationships between specified objects in a room, treating each object as a point within a 12x12 grid"
+    )
 
     # The questions that will be asked per room layout
     questions = ["layout", "tpp", "o2", "o2_d2", "o2_layout"]
