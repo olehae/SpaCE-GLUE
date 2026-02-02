@@ -218,7 +218,7 @@ class STBench(BaseDataset):
                 results.append({"mae": mae, "rmse": rmse})
         else:  # All other tasks use exact match
             for ans in answers:
-                results.append(ans == ground_truth)
+                results.append(ans == str(ground_truth))
 
         return results
 
@@ -231,13 +231,20 @@ class STBench(BaseDataset):
         Returns:
             The final aggregated scores.
         """
-        final_scores = {}
+        by_task = {}
         seen = set()
         tasks = [
             x["task"]
             for x in dataset
             if x["task"] not in seen and not seen.add(x["task"])
         ]
+        dims = self.dimensions.copy()
+        dims.remove("downstream_applications")
+        by_category = {cat: [0.0, 0] for cat in dims}  # sum, count
+        downstream = [0.0, 0, 0.0, 0]  # accuracy sum, count, mae sum, mae count
+        total_accuracy = 0.0
+        accuracy_count = 0
+        non_accuracy_count = 0
 
         for task in tasks:
             if task == "trajectory_prediction":
@@ -257,10 +264,14 @@ class STBench(BaseDataset):
                     mean_score = math.sqrt(sum(e**2 for e in aes) / len(aes))
                     rmse_sum += mean_score
                     count += 1
-                final_scores[task] = {
+                by_task[task] = {
                     "MAE": mae_sum / count if count > 0 else None,
                     "RMSE": rmse_sum / count if count > 0 else None,
+                    "count": count,
                 }
+                non_accuracy_count += count
+                downstream[2] += mae_sum
+                downstream[3] += count
             elif task == "flow_prediction":
                 mae_sum = 0.0
                 rmse_sum = 0.0
@@ -279,10 +290,14 @@ class STBench(BaseDataset):
                     mean_score = math.sqrt(sum(e**2 for e in rsmes) / len(rsmes))
                     rmse_sum += mean_score
                     count += 1
-                final_scores[task] = {
+                by_task[task] = {
                     "MAE": mae_sum / count if count > 0 else None,
                     "RMSE": rmse_sum / count if count > 0 else None,
+                    "count": count,
                 }
+                non_accuracy_count += count
+                downstream[2] += mae_sum
+                downstream[3] += count
             else:  # All other tasks use exact match accuracy
                 sum_of_scores = 0.0
                 count = 0
@@ -292,6 +307,39 @@ class STBench(BaseDataset):
                     mean_score = sum(item["scores"]) / len(item["scores"])
                     sum_of_scores += mean_score
                     count += 1
-                final_scores[task] = sum_of_scores / count if count > 0 else 0.0
+                    total_accuracy += mean_score
+                    accuracy_count += 1
+                    try:
+                        by_category[item["dimension"]][0] += mean_score
+                        by_category[item["dimension"]][1] += 1
+                    except KeyError:
+                        downstream[0] += mean_score
+                        downstream[1] += 1
+                by_task[task] = {
+                    "accuracy": sum_of_scores / count if count > 0 else 0.0,
+                    "count": count,
+                }
 
-        return final_scores
+        final_output = {}
+        final_output["total_accuracy"] = (
+            total_accuracy / accuracy_count if accuracy_count > 0 else 0.0
+        )
+        final_output["total_accuracy_count"] = accuracy_count
+        final_output["total_non_accuracy_count"] = non_accuracy_count
+        final_output["by_category"] = {
+            cat: {
+                "accuracy": (items[0] / items[1] if items[1] > 0 else 0.0),
+                "count": items[1],
+            }
+            for cat, items in by_category.items()
+            if len(items) == 2
+        }
+        final_output["by_category"]["downstream_applications"] = {
+            "accuracy": (downstream[0] / downstream[1] if downstream[1] > 0 else 0.0),
+            "mae": (downstream[2] / downstream[3] if downstream[3] > 0 else 0.0),
+            "accuracy_count": downstream[1],
+            "mae_count": downstream[3],
+        }
+        final_output["by_task"] = by_task
+
+        return final_output

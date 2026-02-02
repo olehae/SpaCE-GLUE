@@ -71,7 +71,8 @@ async def run_workflow(config_path: str = "config.yaml"):
         results_dir=eval_config.get("results_dir", "results"),
     )
     inference = eval_config.get("inference", True)
-    scoring = eval_config.get("scoring", True)
+    evaluate = eval_config.get("evaluate", True)
+    aggregate = eval_config.get("aggregate", True)
 
     # Load model
     model_config = config["model"]
@@ -106,10 +107,14 @@ async def run_workflow(config_path: str = "config.yaml"):
                     f"Inference complete: {summary['written']} items written to {summary['results_path']}"
                 )
 
-            # Scoring
-            if scoring:
-                logger.info(f"Scoring results for {dataset.name}")
-                summary = evaluator.score_results(dataset=dataset, model=model)
+            # Evaluation and/or Aggregation
+            if evaluate or aggregate:
+                logger.info(
+                    f"Scoring results for {dataset.name} (evaluate={evaluate}, aggregate={aggregate})"
+                )
+                summary = evaluator.score_results(
+                    dataset=dataset, model=model, evaluate=evaluate, aggregate=aggregate
+                )
                 logger.info(
                     f"Scoring complete: {summary['num_scored']} items in {summary['results_path']}"
                 )

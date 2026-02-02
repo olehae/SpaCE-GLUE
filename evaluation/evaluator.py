@@ -86,20 +86,13 @@ class Evaluator:
         written = 0
 
         system_prompt = (
-            (
-                system_prompt
-                if system_prompt is not None
-                else "You are a helpful assistant."
-            ),
+            system_prompt
+            if system_prompt is not None
+            else "You are a helpful assistant."
         )
 
         # Check if model and dataset support batch mode and it's requested
-        batch_possible = (
-            getattr(dataset, "batch_possible", False)
-            and batch_size > 1
-            and hasattr(model, "generate_batch")
-            and callable(getattr(model, "generate_batch"))
-        )
+        batch_possible = getattr(dataset, "batch_possible", False) and batch_size > 1
 
         with results_path.open("a", encoding="utf-8") as out_file:
             # Single-item mode
@@ -232,19 +225,24 @@ class Evaluator:
         self,
         dataset: Any,
         model: Any,
+        evaluate: bool = True,
+        aggregate: bool = True,
     ) -> Dict[str, Any]:
         """Score previously generated results using the dataset's evaluate function.
 
         This method:
         1. Loads all results from the JSONL file
+        ### If evaluate=True:
         2. Calls dataset.evaluate() with the full dataset to get per-item scores
         3. Adds scores to each entry in the results file
+        ### If aggregate=True:
         4. Calls dataset.aggregate() to compute category-wise statistics
         5. Saves aggregated results to a summary JSON file
 
         Args:
             dataset: dataset instance with `evaluate(dataset)` and `aggregate(dataset)` methods
             model: model instance (used to locate the results file)
+            aggregate: whether to compute and save aggregated results
 
         Returns:
             dict with aggregated scores and paths to results files
@@ -275,34 +273,36 @@ class Evaluator:
         if not dataset_items:
             raise ValueError(f"No valid entries found in {results_path}")
 
-        # Add scores to dataset_items
-        for item in dataset_items:
-            try:
-                item["scores"] = dataset.evaluate(item)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Dataset evaluate error for item {item['index']}: {e}"
-                )
-
-        # Rewrite the results file with scores included
-        with results_path.open("w", encoding="utf-8") as out_file:
+        if evaluate:
+            # Add scores to dataset_items
             for item in dataset_items:
-                out_file.write(json.dumps(item, ensure_ascii=False) + "\n")
+                try:
+                    item["scores"] = dataset.evaluate(item)
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Dataset evaluate error for item {item['index']}: {e}"
+                    )
 
-        # Call dataset.aggregate() to compute category-wise statistics
-        try:
-            aggregated = dataset.aggregate(dataset_items)
-        except Exception as e:
-            raise RuntimeError(f"Dataset aggregate error: {e!s}")
+            # Rewrite the results file with scores included
+            with results_path.open("w", encoding="utf-8") as out_file:
+                for item in dataset_items:
+                    out_file.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-        # Save aggregated results to summary file
-        summary_path = results_path.with_suffix(".summary.json")
-        with summary_path.open("w", encoding="utf-8") as f:
-            json.dump(aggregated, f, indent=2, ensure_ascii=False)
+        if aggregate:
+            # Call dataset.aggregate() to compute category-wise statistics
+            try:
+                aggregated = dataset.aggregate(dataset_items)
+            except Exception as e:
+                raise RuntimeError(f"Dataset aggregate error: {e!s}")
+
+            # Save aggregated results to summary file
+            summary_path = results_path.with_suffix(".summary.json")
+            with summary_path.open("w", encoding="utf-8") as f:
+                json.dump(aggregated, f, indent=2, ensure_ascii=False)
 
         return {
             "results_path": str(results_path),
-            "summary_path": str(summary_path),
             "num_scored": len(dataset_items),
-            "aggregated_results": aggregated,
+            "summary_path": str(summary_path) if aggregate else None,
+            "aggregated_results": aggregated if aggregate else None,
         }

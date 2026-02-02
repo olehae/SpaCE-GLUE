@@ -21,7 +21,6 @@ def extract_graph(raw):
         return [], []
     if "assistant\n\n" in raw:
         raw = raw.split("assistant\n\n", 1)[0]
-    # print([raw,])
     if "{" in raw:
         _, d = raw.split("{", 1)
     else:

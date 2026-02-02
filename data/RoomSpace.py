@@ -102,29 +102,46 @@ class RoomSpace(BaseDataset):
 
     def aggregate(self, dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Aggregates evaluation results to compute overall mean scores.
+        Aggregates evaluation results to compute overall mean accuracies.
 
         Args:
             dataset: A list of dataset items with evaluation results.
         Returns:
-            The final aggregated scores.
+            The final aggregated accuracies.
         """
         yn_overall, yn_count = 0.0, 0
         fr_overall, fr_count = 0.0, 0
+        categories = {q: [0.0, 0] for q in self.questions}  # [sum, count]
+        total_overall, total_count = 0.0, 0
         for item in dataset:
             if item["question_type"].endswith("yn"):
                 mean_score = sum(item["scores"]) / len(item["scores"])
                 yn_overall += mean_score
                 yn_count += 1
+                categories[item["question_type"][:-3]][0] += mean_score
+                categories[item["question_type"][:-3]][1] += 1
             else:
                 mean_score = sum(item["scores"]) / len(item["scores"])
                 fr_overall += mean_score
                 fr_count += 1
+                categories[item["question_type"][:-3]][0] += mean_score
+                categories[item["question_type"][:-3]][1] += 1
+            total_overall += mean_score
+            total_count += 1
 
         yn_mean_acc = yn_overall / yn_count if yn_count > 0 else 0
         fr_mean_acc = fr_overall / fr_count if fr_count > 0 else 0
+        total_mean_acc = total_overall / total_count if total_count > 0 else 0
 
         return {
-            "yn_mean_acc": yn_mean_acc,
-            "fr_mean_acc": fr_mean_acc,
+            "total_accuracy": total_mean_acc,
+            "total_count": total_count,
+            "yn_accuracy": yn_mean_acc,
+            "yn_count": yn_count,
+            "fr_accuracy": fr_mean_acc,
+            "fr_count": fr_count,
+            "by_category": {
+                k: {"accuracy": (v[0] / v[1] if v[1] > 0 else 0), "count": v[1]}
+                for k, v in categories.items()
+            },
         }

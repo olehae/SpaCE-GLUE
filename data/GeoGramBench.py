@@ -2,6 +2,7 @@ from .base_dataset import BaseDataset
 from typing import Dict, List, Iterable, Any
 import json
 from datasets import load_dataset
+import re
 
 
 class GeoGramBench(BaseDataset):
@@ -68,10 +69,13 @@ class GeoGramBench(BaseDataset):
         model_answers = item["responses"]
         ground_truth = item["answer"].replace("$", "").strip()
         for answer in model_answers:
-            # Answers are expected to be in \\boxed{} format
-            parsed_answer = (
-                answer.replace("$", "").split(r"\\boxed{")[-1].removesuffix("}").strip()
-            )
+            # Answers are expected to be in \boxed{} format
+            match = re.search(r"\\boxed\{(.*)\}", answer)
+            if match:
+                parsed_answer = match.group(1).strip()
+            else:
+                parsed_answer = answer.strip()
+
             results.append(parsed_answer == ground_truth)
 
         return results
@@ -85,8 +89,30 @@ class GeoGramBench(BaseDataset):
         Returns:
             The final aggregated accuracy.
         """
-        overall = 0.0
+        # First value is the sum of scores, second is the count
+        scores = {
+            category: [0.0, 0]
+            for category in [
+                "Primitive Recognition",
+                "Local Relation Composition",
+                "Global Abstract Integration",
+            ]
+        }
+        total_scores = [0.0, 0]
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
-            overall += mean_score
-        return {"accuracy": overall / len(dataset)}
+            scores[item["category"]][0] += mean_score
+            scores[item["category"]][1] += 1
+            total_scores[0] += mean_score
+            total_scores[1] += 1
+
+        final_scores = {}
+        final_scores["total_accuracy"] = (
+            total_scores[0] / total_scores[1] if total_scores[1] > 0 else 0.0
+        )
+        final_scores["total_count"] = total_scores[1]
+        final_scores["by_category"] = {
+            task: {"accuracy": total / count if count > 0 else 0.0, "count": count}
+            for task, (total, count) in scores.items()
+        }
+        return final_scores

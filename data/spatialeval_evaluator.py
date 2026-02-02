@@ -86,6 +86,9 @@ def extract_answer_from_text_spatialgrid(text: str) -> Optional[int]:
         "nine": 9,
     }
 
+    if r"</think>" in text:
+        text = text.split(r"</think>")[-1].strip()
+
     found_numbers = []
 
     # Check for textual numbers and their positions

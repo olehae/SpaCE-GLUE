@@ -5,8 +5,8 @@ from geopy.distance import geodesic
 import re
 
 
-def find_first_digit(response):
-    for char in response:
+def find_last_digit(response):
+    for char in reversed(response):
         if char.isdigit():
             return char
     return None
@@ -40,8 +40,8 @@ def anomaly_detection(response):
         predicted = match.group()
         predicted = predicted.title()
         if predicted == "Abnormal" or predicted == "Anomaly":
-            predicted == "Anomalous"
-        return predicted
+            predicted = "Anomalous"
+        return predicted.lower()
     return None
 
 
@@ -101,22 +101,22 @@ def flow_prediction(response):
 
 
 result_parser = {
-    "administrative_region_determination": find_first_digit,
-    "poi_category_recognition": find_first_digit,
+    "administrative_region_determination": find_last_digit,
+    "poi_category_recognition": find_last_digit,
     "poi_identification": yes_or_no,
-    "urban_region_function_recognition": find_first_digit,
-    "point_trajectory": find_first_digit,
-    "point_region": find_first_digit,
-    "trajectory_region": find_first_digit,
+    "urban_region_function_recognition": find_last_digit,
+    "point_trajectory": find_last_digit,
+    "point_region": find_last_digit,
+    "trajectory_region": find_last_digit,
     "trajectory_identification": yes_or_no,
-    "trajectory_trajectory": find_first_digit,
-    "direction_determination": find_first_digit,
+    "trajectory_trajectory": find_last_digit,
+    "direction_determination": find_last_digit,
     "trajectory_anomaly_detection": anomaly_detection,
     "trajectory_classification": trajectory_classification,
     "trajectory_prediction": trajectory_prediction,
     "flow_prediction": flow_prediction,
-    "navigation": find_first_digit,
-    "road_level_judgment": find_first_digit,
+    "navigation": find_last_digit,
+    "road_level_judgment": find_last_digit,
     "rush_hour_detection": yes_or_no,
     "taxi_occupancy_detection": yes_or_no,
 }

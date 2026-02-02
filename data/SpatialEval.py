@@ -89,14 +89,15 @@ class SpatialEval(BaseDataset):
 
     def aggregate(self, dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Aggregates evaluation results to compute overall mean accuracy.
+        Aggregates evaluation results to compute overall mean accuracies.
 
         Args:
             dataset: A list of dataset items with evaluation results.
         Returns:
-            The final aggregated accuracy.
+            The final aggregated accuracies.
         """
         # First value is the sum of scores, second is the count
+        total_accuracy = [0.0, 0]
         scores = {
             "spatialmap": [0.0, 0],
             "mazenav": [0.0, 0],
@@ -107,12 +108,17 @@ class SpatialEval(BaseDataset):
             mean_score = sum(item["scores"]) / len(item["scores"])
             scores[item["task"]][0] += mean_score
             scores[item["task"]][1] += 1
+            total_accuracy[0] += mean_score
+            total_accuracy[1] += 1
 
         final_scores = {}
-        for score, (total, count) in scores.items():
-            if count > 0:
-                final_scores[score] = total / count
-            else:
-                final_scores[score] = 0.0
+        final_scores["total_accuracy"] = (
+            total_accuracy[0] / total_accuracy[1] if total_accuracy[1] > 0 else 0.0
+        )
+        final_scores["total_count"] = total_accuracy[1]
+        final_scores["by_category"] = {
+            cat: {"accuracy": acc[0] / acc[1] if acc[1] > 0 else 0.0, "count": acc[1]}
+            for cat, acc in scores.items()
+        }
 
         return final_scores

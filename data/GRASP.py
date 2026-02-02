@@ -104,12 +104,12 @@ class GRASP(BaseDataset):
 
     def aggregate(self, dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Aggregates evaluation results to compute overall mean accuracy.
+        Aggregates evaluation results to compute overall mean energy and valid steps.
 
         Args:
             dataset: A list of dataset items with evaluation results.
         Returns:
-            The final aggregated accuracy.
+            The final aggregated energy and valid steps.
         """
         overall_energy = 0.0
         overall_steps = 0.0
@@ -120,6 +120,7 @@ class GRASP(BaseDataset):
             overall_energy += mean_energy
             overall_steps += mean_steps
         return {
-            "accuracy": overall_energy / len(dataset),
-            "avg_valid_steps": overall_steps / len(dataset),
+            "total_energy": overall_energy / len(dataset),
+            "total_valid_steps": overall_steps / len(dataset),
+            "total_count": len(dataset),
         }

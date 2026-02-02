@@ -80,7 +80,17 @@ class SPaRC(BaseDataset):
             The final aggregated accuracy.
         """
         overall = 0.0
+        by_difficulty = {str(k): [0.0, 0] for k in range(1, 6)}
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
+            by_difficulty[str(item["difficulty_level"])][0] += mean_score
+            by_difficulty[str(item["difficulty_level"])][1] += 1
             overall += mean_score
-        return {"accuracy": overall / len(dataset)}
+        return {
+            "total_accuracy": overall / len(dataset),
+            "total_count": len(dataset),
+            "by_difficulty": {
+                k: {"accuracy": (v[0] / v[1] if v[1] > 0 else 0), "count": v[1]}
+                for k, v in by_difficulty.items()
+            },
+        }

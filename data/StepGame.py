@@ -91,16 +91,22 @@ class StepGame(BaseDataset):
         """
         # First value is the sum of scores, second is the count
         scores = {str(k): [0.0, 0] for k in range(1, 11)}
+        total_scores = [0.0, 0]
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
             scores[item["k_hop"]][0] += mean_score
             scores[item["k_hop"]][1] += 1
+            total_scores[0] += mean_score
+            total_scores[1] += 1
 
         final_scores = {}
-        for score, (total, count) in scores.items():
-            if count > 0:
-                final_scores[score] = total / count
-            else:
-                final_scores[score] = 0.0
+        final_scores["total_accuracy"] = (
+            total_scores[0] / total_scores[1] if total_scores[1] > 0 else 0.0
+        )
+        final_scores["total_count"] = total_scores[1]
+        final_scores["by_difficulty"] = {
+            k: {"accuracy": total / count if count > 0 else 0.0, "count": count}
+            for k, (total, count) in scores.items()
+        }
 
         return final_scores

@@ -100,12 +100,17 @@ class bAbI(BaseDataset):
         """
         results = []
         ground_truth = item["answer"].lower()
-
+        responses = []
+        for resp in item["responses"]:
+            if "</think>" in resp:
+                # Extract the part after </think>
+                resp = resp.split("</think>")[-1].strip()
+            responses.append(resp.lower())
         # Task 17 and 18 are yes/no questions
         if item["task"] in ["qa17", "qa18"]:
             # Try to filter a yes/no answer from the response
             pattern = r"\b(yes|no)\b"
-            for response in item["responses"]:
+            for response in responses:
                 match = re.search(pattern, response, flags=re.I)
                 if match:
                     predicted = match.group().lower()
@@ -116,7 +121,7 @@ class bAbI(BaseDataset):
         # Task 19 is path prediction
         elif item["task"] == "qa19":
             ground_truth = ground_truth.split(",")
-            for response in item["responses"]:
+            for response in responses:
                 # Extract only the directions from the response
                 pattern = r"\b[nsew]\b"
                 directions = re.findall(pattern, response, flags=re.I)
@@ -144,16 +149,22 @@ class bAbI(BaseDataset):
         """
         # First value is the sum of scores, second is the count
         scores = {task: [0.0, 0] for task in ["qa17", "qa18", "qa19"]}
+        total_scores = [0.0, 0]
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
             scores[item["task"]][0] += mean_score
             scores[item["task"]][1] += 1
+            total_scores[0] += mean_score
+            total_scores[1] += 1
 
         final_scores = {}
-        for score, (total, count) in scores.items():
-            if count > 0:
-                final_scores[score] = total / count
-            else:
-                final_scores[score] = 0.0
+        final_scores["total_accuracy"] = (
+            total_scores[0] / total_scores[1] if total_scores[1] > 0 else 0.0
+        )
+        final_scores["total_count"] = total_scores[1]
+        final_scores["by_category"] = {
+            task: {"accuracy": total / count if count > 0 else 0.0, "count": count}
+            for task, (total, count) in scores.items()
+        }
 
         return final_scores

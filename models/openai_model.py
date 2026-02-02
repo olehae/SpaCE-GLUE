@@ -4,6 +4,7 @@ from openai import AsyncOpenAI
 from typing import List
 from models.base_model import BaseModel
 import asyncio
+import httpx
 
 
 class OpenAIModel(BaseModel):
@@ -27,7 +28,11 @@ class OpenAIModel(BaseModel):
             reasoning_effort (str, optional): Reasoning effort level (e.g., "low", "medium", "high")
         """
         try:
-            self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+            self.client = AsyncOpenAI(
+                base_url=base_url,
+                api_key=api_key,
+                http_client=httpx.AsyncClient(timeout=1800),
+            )
             self._name = name
             self.temperature = temperature
             self.reasoning_effort = reasoning_effort
@@ -86,6 +91,9 @@ class OpenAIModel(BaseModel):
 
             # Make API call
             response = await self.client.chat.completions.create(**kwargs)
-            return response.choices[0].message.content.strip()
+            if response.choices[0].message.content is not None:
+                return response.choices[0].message.content.strip()
+            else:
+                return ""
         except Exception as e:
             raise RuntimeError(f"OpenAI generation failed: {e}")

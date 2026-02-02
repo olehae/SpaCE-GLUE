@@ -159,19 +159,25 @@ class PLUGH(BaseDataset):
         """
         results = []
         task_num = item["task_type"]
+        responses = []
+        for resp in item["responses"]:
+            if r"</think>" in resp:
+                resp = resp.split(r"</think>")[-1].strip()
+            responses.append(resp.lower())
+
         if task_num == 1:
-            for response in item["responses"]:
+            for response in responses:
                 target_graph = item["target"]
                 pred_graph = extract_graph(response)
                 f1_nodes, f1_edges = task1(target_graph, pred_graph)
                 result = {"f1_nodes": f1_nodes, "f1_edges": f1_edges}
                 results.append(result)
         elif task_num == 2:
-            for response in item["responses"]:
+            for response in responses:
                 result = task2(item["target"], response)
                 results.append(result)
         else:  # task 3 and 4
-            for response in item["responses"]:
+            for response in responses:
                 result = task3_4(item["target"], response)
                 results.append(result)
 
@@ -189,9 +195,13 @@ class PLUGH(BaseDataset):
         task1_f1_nodes = 0.0
         task1_f1_edges = 0.0
         count1 = 0
-        task2_f1, count2 = 0.0, 0
-        task3_f1, count3 = 0.0, 0
-        task4_f1, count4 = 0.0, 0
+        task2_ldist, count2 = 0.0, 0
+        task3_ldist, count3 = 0.0, 0
+        task4_ldist, count4 = 0.0, 0
+        total_f1 = 0.0
+        total_ldist = 0.0
+        count_ldist = 0
+
         for item in dataset:
             scores = item["scores"]
             if item["task_type"] == 1:
@@ -199,24 +209,57 @@ class PLUGH(BaseDataset):
                 mean_f1_edges = sum(score["f1_edges"] for score in scores) / len(scores)
                 task1_f1_nodes += mean_f1_nodes
                 task1_f1_edges += mean_f1_edges
+                total_f1 += (mean_f1_nodes + mean_f1_edges) / 2
                 count1 += 1
             elif item["task_type"] == 2:
-                mean_f1 = sum(scores) / len(scores)
-                task2_f1 += mean_f1
+                mean_ldist = sum(scores) / len(scores)
+                task2_ldist += mean_ldist
                 count2 += 1
+                total_ldist += mean_ldist
+                count_ldist += 1
             elif item["task_type"] == 3:
-                mean_f1 = sum(scores) / len(scores)
-                task3_f1 += mean_f1
+                mean_ldist = sum(scores) / len(scores)
+                task3_ldist += mean_ldist
                 count3 += 1
+                total_ldist += mean_ldist
+                count_ldist += 1
             elif item["task_type"] == 4:
-                mean_f1 = sum(scores) / len(scores)
-                task4_f1 += mean_f1
+                mean_ldist = sum(scores) / len(scores)
+                task4_ldist += mean_ldist
                 count4 += 1
+                total_ldist += mean_ldist
+                count_ldist += 1
 
         return {
-            "task1_f1_nodes": task1_f1_nodes / count1,
-            "task1_f1_edges": task1_f1_edges / count1,
-            "task2_normalized_levenshtein": task2_f1 / count2,
-            "task3_normalized_levenshtein": task3_f1 / count3,
-            "task4_normalized_levenshtein": task4_f1 / count4,
+            "total_f1": total_f1 / count1 if count1 > 0 else 0.0,
+            "total_f1_count": count1,
+            "total_normalized_levenshtein": (
+                total_ldist / count_ldist if count_ldist > 0 else 0.0
+            ),
+            "total_normalized_levenshtein_count": count_ldist,
+            "by_task": {
+                "task1": {
+                    "nodes_f1": task1_f1_nodes / count1 if count1 > 0 else 0.0,
+                    "edges_f1": task1_f1_edges / count1 if count1 > 0 else 0.0,
+                    "count": count1,
+                },
+                "task2": {
+                    "normalized_levenshtein": (
+                        task2_ldist / count2 if count2 > 0 else 0.0
+                    ),
+                    "count": count2,
+                },
+                "task3": {
+                    "normalized_levenshtein": (
+                        task3_ldist / count3 if count3 > 0 else 0.0
+                    ),
+                    "count": count3,
+                },
+                "task4": {
+                    "normalized_levenshtein": (
+                        task4_ldist / count4 if count4 > 0 else 0.0
+                    ),
+                    "count": count4,
+                },
+            },
         }
