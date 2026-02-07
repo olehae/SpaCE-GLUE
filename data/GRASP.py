@@ -111,16 +111,32 @@ class GRASP(BaseDataset):
         Returns:
             The final aggregated energy and valid steps.
         """
-        overall_energy = 0.0
-        overall_steps = 0.0
+        if not dataset:
+            raise ValueError("Dataset is empty, cannot aggregate results.")
+        n = len(dataset)
+        overall_energy = []
+        valid_steps = []
+        steps_taken = []
         for item in dataset:
             scores = item["scores"]
             mean_energy = sum(score["final_energy"] for score in scores) / len(scores)
             mean_steps = sum(score["valid_steps"] for score in scores) / len(scores)
-            overall_energy += mean_energy
-            overall_steps += mean_steps
+            mean_steps_taken = sum(score["steps_taken"] for score in scores) / len(
+                scores
+            )
+            overall_energy.append(mean_energy)
+            valid_steps.append(mean_steps)
+            steps_taken.append(mean_steps_taken)
+        energy = sum(overall_energy) / n
+        energy_std = (sum((s - energy) ** 2 for s in overall_energy) / (n - 1)) ** 0.5
+        energy_se = energy_std / (n**0.5)
         return {
-            "total_energy": overall_energy / len(dataset),
-            "total_valid_steps": overall_steps / len(dataset),
-            "total_count": len(dataset),
+            "total": {
+                "energy": energy,
+                "energy_std": energy_std,
+                "energy_se": energy_se,
+                "valid_steps": sum(valid_steps) / n,
+                "steps_taken": sum(steps_taken) / n,
+                "count": n,
+            },
         }

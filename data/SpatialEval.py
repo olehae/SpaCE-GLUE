@@ -96,29 +96,38 @@ class SpatialEval(BaseDataset):
         Returns:
             The final aggregated accuracies.
         """
-        # First value is the sum of scores, second is the count
-        total_accuracy = [0.0, 0]
+        if not dataset:
+            raise ValueError("Dataset is empty. Cannot aggregate results.")
+        l = len(dataset)
+        total_accuracy = []
         scores = {
-            "spatialmap": [0.0, 0],
-            "mazenav": [0.0, 0],
-            "spatialgrid": [0.0, 0],
-            "spatialreal": [0.0, 0],
+            "spatialmap": [],
+            "mazenav": [],
+            "spatialgrid": [],
+            "spatialreal": [],
         }
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
-            scores[item["task"]][0] += mean_score
-            scores[item["task"]][1] += 1
-            total_accuracy[0] += mean_score
-            total_accuracy[1] += 1
+            scores[item["task"]].append(mean_score)
+            total_accuracy.append(mean_score)
 
-        final_scores = {}
-        final_scores["total_accuracy"] = (
-            total_accuracy[0] / total_accuracy[1] if total_accuracy[1] > 0 else 0.0
+        acc = sum(total_accuracy) / l
+        std = (
+            (sum((s - acc) ** 2 for s in total_accuracy) / (l - 1)) ** 0.5
+            if l > 1
+            else 0
         )
-        final_scores["total_count"] = total_accuracy[1]
-        final_scores["by_category"] = {
-            cat: {"accuracy": acc[0] / acc[1] if acc[1] > 0 else 0.0, "count": acc[1]}
-            for cat, acc in scores.items()
-        }
+        se = std / (l**0.5)
 
-        return final_scores
+        return {
+            "total": {
+                "accuracy": acc,
+                "standard_deviation": std,
+                "standard_error": se,
+                "count": l,
+            },
+            "by_category": {
+                k: {"accuracy": (sum(v) / len(v) if v else 0), "count": len(v)}
+                for k, v in scores.items()
+            },
+        }

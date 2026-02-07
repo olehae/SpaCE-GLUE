@@ -89,6 +89,8 @@ class GeoGramBench(BaseDataset):
         Returns:
             The final aggregated accuracy.
         """
+        if not dataset:
+            raise ValueError("Dataset is empty, cannot aggregate results.")
         # First value is the sum of scores, second is the count
         scores = {
             category: [0.0, 0]
@@ -98,19 +100,25 @@ class GeoGramBench(BaseDataset):
                 "Global Abstract Integration",
             ]
         }
-        total_scores = [0.0, 0]
+        mean_scores = []
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
+            mean_scores.append(mean_score)
             scores[item["category"]][0] += mean_score
             scores[item["category"]][1] += 1
-            total_scores[0] += mean_score
-            total_scores[1] += 1
 
         final_scores = {}
-        final_scores["total_accuracy"] = (
-            total_scores[0] / total_scores[1] if total_scores[1] > 0 else 0.0
-        )
-        final_scores["total_count"] = total_scores[1]
+        accuracy = sum(mean_scores) / len(mean_scores)
+        std = (
+            sum((s - accuracy) ** 2 for s in mean_scores) / (len(mean_scores) - 1)
+        ) ** 0.5
+        se = std / (len(mean_scores) ** 0.5)
+        final_scores["total"] = {
+            "accuracy": accuracy,
+            "standard_deviation": std,
+            "standard_error": se,
+            "count": len(mean_scores),
+        }
         final_scores["by_category"] = {
             task: {"accuracy": total / count if count > 0 else 0.0, "count": count}
             for task, (total, count) in scores.items()

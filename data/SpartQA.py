@@ -118,27 +118,31 @@ class SpartQA(BaseDataset):
         Returns:
             The final aggregated accuracies.
         """
-        # First value is the sum of scores, second is the count
-        scores = {"FB": [0.0, 0], "FR": [0.0, 0], "CO": [0.0, 0], "YN": [0.0, 0]}
-        total_scores = [0.0, 0]
+        if not dataset:
+            raise ValueError("Dataset is empty. Cannot aggregate results.")
+        l = len(dataset)
+        scores = {"FB": [], "FR": [], "CO": [], "YN": []}
+        total_scores = []
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
-            scores[item["q_type"]][0] += mean_score
-            scores[item["q_type"]][1] += 1
-            total_scores[0] += mean_score
-            total_scores[1] += 1
+            scores[item["q_type"]].append(mean_score)
+            total_scores.append(mean_score)
 
-        final_scores = {}
-        final_scores["total_accuracy"] = (
-            total_scores[0] / total_scores[1] if total_scores[1] > 0 else 0.0
+        acc = sum(total_scores) / l
+        std = (
+            (sum((s - acc) ** 2 for s in total_scores) / (l - 1)) ** 0.5 if l > 1 else 0
         )
-        final_scores["total_count"] = total_scores[1]
-        final_scores["by_category"] = {
-            score: {
-                "accuracy": (vals[0] / vals[1] if vals[1] > 0 else 0.0),
-                "count": vals[1],
-            }
-            for score, vals in scores.items()
-        }
+        se = std / (l**0.5)
 
-        return final_scores
+        return {
+            "total": {
+                "accuracy": acc,
+                "standard_deviation": std,
+                "standard_error": se,
+                "count": l,
+            },
+            "by_category": {
+                k: {"accuracy": (sum(v) / len(v) if v else 0), "count": len(v)}
+                for k, v in scores.items()
+            },
+        }

@@ -169,8 +169,17 @@ class PLUGH(BaseDataset):
             for response in responses:
                 target_graph = item["target"]
                 pred_graph = extract_graph(response)
-                f1_nodes, f1_edges = task1(target_graph, pred_graph)
-                result = {"f1_nodes": f1_nodes, "f1_edges": f1_edges}
+                f1_nodes, f1_edges, prec_nodes, rec_nodes, prec_edges, rec_edges = (
+                    task1(target_graph, pred_graph)
+                )
+                result = {
+                    "f1_nodes": f1_nodes,
+                    "f1_edges": f1_edges,
+                    "prec_nodes": prec_nodes,
+                    "rec_nodes": rec_nodes,
+                    "prec_edges": prec_edges,
+                    "rec_edges": rec_edges,
+                }
                 results.append(result)
         elif task_num == 2:
             for response in responses:
@@ -192,74 +201,107 @@ class PLUGH(BaseDataset):
         Returns:
             The final aggregated scores.
         """
-        task1_f1_nodes = 0.0
-        task1_f1_edges = 0.0
-        count1 = 0
-        task2_ldist, count2 = 0.0, 0
-        task3_ldist, count3 = 0.0, 0
-        task4_ldist, count4 = 0.0, 0
-        total_f1 = 0.0
-        total_ldist = 0.0
-        count_ldist = 0
+        if not dataset:
+            raise ValueError("Dataset is empty, cannot aggregate results.")
+        ldists = {category: list() for category in range(2, 5)}
+        task1 = {
+            cat: list()
+            for cat in [
+                "f1_nodes",
+                "f1_edges",
+                "prec_nodes",
+                "rec_nodes",
+                "prec_edges",
+                "rec_edges",
+            ]
+        }
+        mean_f1 = []
+        mean_prec = []
+        mean_rec = []
+        mean_ldist = []
 
         for item in dataset:
             scores = item["scores"]
+            l = len(scores)
             if item["task_type"] == 1:
-                mean_f1_nodes = sum(score["f1_nodes"] for score in scores) / len(scores)
-                mean_f1_edges = sum(score["f1_edges"] for score in scores) / len(scores)
-                task1_f1_nodes += mean_f1_nodes
-                task1_f1_edges += mean_f1_edges
-                total_f1 += (mean_f1_nodes + mean_f1_edges) / 2
-                count1 += 1
-            elif item["task_type"] == 2:
-                mean_ldist = sum(scores) / len(scores)
-                task2_ldist += mean_ldist
-                count2 += 1
-                total_ldist += mean_ldist
-                count_ldist += 1
-            elif item["task_type"] == 3:
-                mean_ldist = sum(scores) / len(scores)
-                task3_ldist += mean_ldist
-                count3 += 1
-                total_ldist += mean_ldist
-                count_ldist += 1
-            elif item["task_type"] == 4:
-                mean_ldist = sum(scores) / len(scores)
-                task4_ldist += mean_ldist
-                count4 += 1
-                total_ldist += mean_ldist
-                count_ldist += 1
+                temp = {}
+                for val in task1.keys():
+                    mean_val = sum(score[val] for score in scores) / l
+                    temp[val] = mean_val
+                    task1[val].append(mean_val)
+                mean_f1.append((temp["f1_nodes"] + temp["f1_edges"]) / 2)
+                mean_prec.append((temp["prec_nodes"] + temp["prec_edges"]) / 2)
+                mean_rec.append((temp["rec_nodes"] + temp["rec_edges"]) / 2)
+            else:
+                ldist_value = sum(scores) / l
+                mean_ldist.append(ldist_value)
+                ldists[item["task_type"]].append(ldist_value)
 
+        f1_len = len(mean_f1)
+        f1 = sum(mean_f1) / f1_len if f1_len > 0 else 0.0
+        f1_std = (
+            (sum((s - f1) ** 2 for s in mean_f1) / (f1_len - 1)) ** 0.5
+            if f1_len > 1
+            else 0
+        )
+        f1_se = f1_std / (f1_len**0.5) if f1_len > 0 else 0
+
+        ldist_len = len(mean_ldist)
+        ldist = sum(mean_ldist) / ldist_len if ldist_len > 0 else 0.0
+        ldist_std = (
+            (sum((s - ldist) ** 2 for s in mean_ldist) / (ldist_len - 1)) ** 0.5
+            if ldist_len > 1
+            else 0
+        )
+        ldist_se = ldist_std / (ldist_len**0.5) if ldist_len > 0 else 0
         return {
-            "total_f1": total_f1 / count1 if count1 > 0 else 0.0,
-            "total_f1_count": count1,
-            "total_normalized_levenshtein": (
-                total_ldist / count_ldist if count_ldist > 0 else 0.0
-            ),
-            "total_normalized_levenshtein_count": count_ldist,
+            "total": {
+                "f1": f1,
+                "f1_std": f1_std,
+                "f1_se": f1_se,
+                "precision": sum(mean_prec) / f1_len if f1_len > 0 else 0.0,
+                "recall": sum(mean_rec) / f1_len if f1_len > 0 else 0.0,
+                "f1_count": f1_len,
+                "normalized_levenshtein": ldist,
+                "normalized_levenshtein_std": ldist_std,
+                "normalized_levenshtein_se": ldist_se,
+                "normalized_levenshtein_count": ldist_len,
+            },
             "by_task": {
                 "task1": {
-                    "nodes_f1": task1_f1_nodes / count1 if count1 > 0 else 0.0,
-                    "edges_f1": task1_f1_edges / count1 if count1 > 0 else 0.0,
-                    "count": count1,
+                    "nodes_f1": sum(task1["f1_nodes"]) / f1_len if f1_len > 0 else 0.0,
+                    "edges_f1": sum(task1["f1_edges"]) / f1_len if f1_len > 0 else 0.0,
+                    "nodes_precision": (
+                        sum(task1["prec_nodes"]) / f1_len if f1_len > 0 else 0.0
+                    ),
+                    "edges_precision": (
+                        sum(task1["prec_edges"]) / f1_len if f1_len > 0 else 0.0
+                    ),
+                    "nodes_recall": (
+                        sum(task1["rec_nodes"]) / f1_len if f1_len > 0 else 0.0
+                    ),
+                    "edges_recall": (
+                        sum(task1["rec_edges"]) / f1_len if f1_len > 0 else 0.0
+                    ),
+                    "count": f1_len,
                 },
                 "task2": {
                     "normalized_levenshtein": (
-                        task2_ldist / count2 if count2 > 0 else 0.0
+                        sum(ldists[2]) / len(ldists[2]) if len(ldists[2]) > 0 else 0.0
                     ),
-                    "count": count2,
+                    "count": len(ldists[2]),
                 },
                 "task3": {
                     "normalized_levenshtein": (
-                        task3_ldist / count3 if count3 > 0 else 0.0
+                        sum(ldists[3]) / len(ldists[3]) if len(ldists[3]) > 0 else 0.0
                     ),
-                    "count": count3,
+                    "count": len(ldists[3]),
                 },
                 "task4": {
                     "normalized_levenshtein": (
-                        task4_ldist / count4 if count4 > 0 else 0.0
+                        sum(ldists[4]) / len(ldists[4]) if len(ldists[4]) > 0 else 0.0
                     ),
-                    "count": count4,
+                    "count": len(ldists[4]),
                 },
             },
         }

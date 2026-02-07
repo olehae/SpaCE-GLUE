@@ -89,24 +89,34 @@ class StepGame(BaseDataset):
         Returns:
             The final aggregated accuracy.
         """
-        # First value is the sum of scores, second is the count
-        scores = {str(k): [0.0, 0] for k in range(1, 11)}
-        total_scores = [0.0, 0]
+        if not dataset:
+            raise ValueError("Dataset is empty. Cannot aggregate results.")
+        scores = {str(k): [] for k in range(1, 11)}
+        total_scores = []
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
-            scores[item["k_hop"]][0] += mean_score
-            scores[item["k_hop"]][1] += 1
-            total_scores[0] += mean_score
-            total_scores[1] += 1
+            scores[item["k_hop"]].append(mean_score)
+            total_scores.append(mean_score)
 
-        final_scores = {}
-        final_scores["total_accuracy"] = (
-            total_scores[0] / total_scores[1] if total_scores[1] > 0 else 0.0
+        l = len(total_scores)
+        acc = sum(total_scores) / l
+        std = (
+            (sum((s - acc) ** 2 for s in total_scores) / (l - 1)) ** 0.5 if l > 1 else 0
         )
-        final_scores["total_count"] = total_scores[1]
-        final_scores["by_difficulty"] = {
-            k: {"accuracy": total / count if count > 0 else 0.0, "count": count}
-            for k, (total, count) in scores.items()
-        }
+        se = std / (l**0.5)
 
-        return final_scores
+        return {
+            "total": {
+                "accuracy": acc,
+                "standard_deviation": std,
+                "standard_error": se,
+                "count": l,
+            },
+            "by_difficulty": {
+                k: {
+                    "accuracy": (sum(v) / len(v) if len(v) > 0 else 0.0),
+                    "count": len(v),
+                }
+                for k, v in scores.items()
+            },
+        }

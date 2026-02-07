@@ -122,7 +122,7 @@ def task1(ground_truth, predicted):
     else:
         f1_edges = 0.0
 
-    return f1_nodes, f1_edges
+    return f1_nodes, f1_edges, prec_nodes, rec_nodes, prec_edges, rec_edges
 
 
 def task2(ground_truth, predicted):

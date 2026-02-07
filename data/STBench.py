@@ -231,6 +231,8 @@ class STBench(BaseDataset):
         Returns:
             The final aggregated scores.
         """
+        if not dataset:
+            raise ValueError("Dataset is empty. Cannot aggregate results.")
         by_task = {}
         seen = set()
         tasks = [
@@ -242,8 +244,7 @@ class STBench(BaseDataset):
         dims.remove("downstream_applications")
         by_category = {cat: [0.0, 0] for cat in dims}  # sum, count
         downstream = [0.0, 0, 0.0, 0]  # accuracy sum, count, mae sum, mae count
-        total_accuracy = 0.0
-        accuracy_count = 0
+        total_accuracy = []
         non_accuracy_count = 0
 
         for task in tasks:
@@ -307,8 +308,7 @@ class STBench(BaseDataset):
                     mean_score = sum(item["scores"]) / len(item["scores"])
                     sum_of_scores += mean_score
                     count += 1
-                    total_accuracy += mean_score
-                    accuracy_count += 1
+                    total_accuracy.append(mean_score)
                     try:
                         by_category[item["dimension"]][0] += mean_score
                         by_category[item["dimension"]][1] += 1
@@ -320,12 +320,24 @@ class STBench(BaseDataset):
                     "count": count,
                 }
 
-        final_output = {}
-        final_output["total_accuracy"] = (
-            total_accuracy / accuracy_count if accuracy_count > 0 else 0.0
+        l = len(total_accuracy)
+        acc = sum(total_accuracy) / l if l > 0 else 0.0
+        std = (
+            (sum((s - acc) ** 2 for s in total_accuracy) / (l - 1)) ** 0.5
+            if l > 1
+            else 0.0
         )
-        final_output["total_accuracy_count"] = accuracy_count
-        final_output["total_non_accuracy_count"] = non_accuracy_count
+        se = std / (l**0.5) if l > 0 else 0.0
+
+        final_output = {}
+        final_output["total"] = {
+            "accuracy": acc,
+            "standard_deviation": std,
+            "standard_error": se,
+            "count": l,
+            "non_accuracy_count": non_accuracy_count,
+        }
+
         final_output["by_category"] = {
             cat: {
                 "accuracy": (items[0] / items[1] if items[1] > 0 else 0.0),

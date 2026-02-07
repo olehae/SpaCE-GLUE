@@ -109,37 +109,72 @@ class RoomSpace(BaseDataset):
         Returns:
             The final aggregated accuracies.
         """
-        yn_overall, yn_count = 0.0, 0
-        fr_overall, fr_count = 0.0, 0
-        categories = {q: [0.0, 0] for q in self.questions}  # [sum, count]
-        total_overall, total_count = 0.0, 0
+        if not dataset:
+            raise ValueError("Dataset is empty, cannot aggregate results.")
+        l = len(dataset)
+        acc = []
+        fr = []
+        yn = []
+        categories = {
+            q + suffix: [0.0, 0] for q in self.questions for suffix in ["_yn", "_fr"]
+        }  # [sum, count]
         for item in dataset:
+            mean_score = sum(item["scores"]) / len(item["scores"])
+            acc.append(mean_score)
             if item["question_type"].endswith("yn"):
-                mean_score = sum(item["scores"]) / len(item["scores"])
-                yn_overall += mean_score
-                yn_count += 1
-                categories[item["question_type"][:-3]][0] += mean_score
-                categories[item["question_type"][:-3]][1] += 1
+                yn.append(mean_score)
+                categories[item["question_type"]][0] += mean_score
+                categories[item["question_type"]][1] += 1
             else:
-                mean_score = sum(item["scores"]) / len(item["scores"])
-                fr_overall += mean_score
-                fr_count += 1
-                categories[item["question_type"][:-3]][0] += mean_score
-                categories[item["question_type"][:-3]][1] += 1
-            total_overall += mean_score
-            total_count += 1
+                fr.append(mean_score)
+                categories[item["question_type"]][0] += mean_score
+                categories[item["question_type"]][1] += 1
 
-        yn_mean_acc = yn_overall / yn_count if yn_count > 0 else 0
-        fr_mean_acc = fr_overall / fr_count if fr_count > 0 else 0
-        total_mean_acc = total_overall / total_count if total_count > 0 else 0
+        yn_count = len(yn)
+        fr_count = len(fr)
+        total_mean_acc = sum(acc) / l
+        yn_mean_acc = sum(yn) / yn_count if yn_count > 0 else 0
+        fr_mean_acc = sum(fr) / fr_count if fr_count > 0 else 0
+        total_std = (
+            (sum((s - total_mean_acc) ** 2 for s in acc) / (l - 1)) ** 0.5
+            if l > 1
+            else 0
+        )
+        total_se = total_std / (l**0.5)
+        yn_std = (
+            (sum((s - yn_mean_acc) ** 2 for s in yn) / (yn_count - 1)) ** 0.5
+            if yn_count > 1
+            else 0
+        )
+        yn_se = yn_std / (yn_count**0.5) if yn_count > 0 else 0
+        fr_std = (
+            (sum((s - fr_mean_acc) ** 2 for s in fr) / (fr_count - 1)) ** 0.5
+            if fr_count > 1
+            else 0
+        )
+        fr_se = fr_std / (fr_count**0.5) if fr_count > 0 else 0
 
         return {
-            "total_accuracy": total_mean_acc,
-            "total_count": total_count,
-            "yn_accuracy": yn_mean_acc,
-            "yn_count": yn_count,
-            "fr_accuracy": fr_mean_acc,
-            "fr_count": fr_count,
+            "total": {
+                "accuracy": total_mean_acc,
+                "standard_deviation": total_std,
+                "standard_error": total_se,
+                "count": l,
+            },
+            "by_type": {
+                "yn": {
+                    "accuracy": yn_mean_acc,
+                    "standard_deviation": yn_std,
+                    "standard_error": yn_se,
+                    "count": yn_count,
+                },
+                "fr": {
+                    "accuracy": fr_mean_acc,
+                    "standard_deviation": fr_std,
+                    "standard_error": fr_se,
+                    "count": fr_count,
+                },
+            },
             "by_category": {
                 k: {"accuracy": (v[0] / v[1] if v[1] > 0 else 0), "count": v[1]}
                 for k, v in categories.items()
