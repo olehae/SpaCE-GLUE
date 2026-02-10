@@ -1,5 +1,5 @@
+from space_glue.workflow.runner import run_workflow
 import argparse
-from workflow.runner import run_workflow
 import sys
 import asyncio
 

@@ -1,5 +1,5 @@
-from .base_dataset import BaseDataset
-from .plugh_evaluator import extract_graph, task1, task2, task3_4
+from space_glue.data.base_dataset import BaseDataset
+from space_glue.data.plugh_evaluator import extract_graph, task1, task2, task3_4
 from typing import Dict, List, Iterable, Any
 from urllib import request
 import json

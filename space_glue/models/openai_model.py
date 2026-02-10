@@ -1,9 +1,7 @@
 # Models using OpenAI-compatible API with vLLM structured output capabilities
-
+from space_glue.models.base_model import BaseModel
 from openai import AsyncOpenAI
 from typing import List
-from models.base_model import BaseModel
-import asyncio
 import httpx
 
 

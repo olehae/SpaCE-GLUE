@@ -1,5 +1,5 @@
-from .base_dataset import BaseDataset
-from .spatialeval_evaluator import (
+from space_glue.data.base_dataset import BaseDataset
+from space_glue.data.spatialeval_evaluator import (
     extract_answer_from_text_mazenav,
     extract_answer_from_text_spatialgrid,
     extract_answer_from_text_spatialmap,

@@ -5,8 +5,8 @@ import logging
 import importlib
 from typing import Any
 
-from workflow.config_loader import load_config
-from evaluation.evaluator import Evaluator
+from space_glue.workflow.config_loader import load_config
+from space_glue.evaluation.evaluator import Evaluator
 
 
 def setup_logging(config: dict) -> logging.Logger:

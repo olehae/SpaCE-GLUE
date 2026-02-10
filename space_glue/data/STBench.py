@@ -1,6 +1,5 @@
-from turtle import distance
-from .base_dataset import BaseDataset
-from .stbench_evaluator import calculate_distance, result_parser
+from space_glue.data.base_dataset import BaseDataset
+from space_glue.data.stbench_evaluator import calculate_distance, result_parser
 from typing import Dict, List, Iterable, Any
 import json
 from urllib import request

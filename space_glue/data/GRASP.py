@@ -1,5 +1,5 @@
-from .base_dataset import BaseDataset
-from .grasp_evaluator import GRASPEvaluator, parse_steps_from_response
+from space_glue.data.base_dataset import BaseDataset
+from space_glue.data.grasp_evaluator import GRASPEvaluator, parse_steps_from_response
 from typing import Dict, List, Iterable, Any
 from urllib import request
 import json

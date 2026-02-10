@@ -1,4 +1,4 @@
-from .base_dataset import BaseDataset
+from space_glue.data.base_dataset import BaseDataset
 from typing import Dict, List, Iterable, Any
 import requests
 import zipfile

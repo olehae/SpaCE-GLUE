@@ -1,8 +1,6 @@
 # Models from Huggingface using vLLM for local inference
-
+from space_glue.models.base_model import BaseModel
 from vllm import LLM, SamplingParams
-from typing import List
-from models.base_model import BaseModel
 
 
 class VLLMModel(BaseModel):

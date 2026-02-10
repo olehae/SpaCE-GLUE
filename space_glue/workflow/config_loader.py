@@ -4,7 +4,7 @@ import os
 import yaml
 from dotenv import load_dotenv
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def _resolve_env_vars(value: Any) -> Any:

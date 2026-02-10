@@ -1,25 +1,25 @@
-from .base_dataset import BaseDataset
+from space_glue.data.base_dataset import BaseDataset
 from typing import Dict, List, Iterable, Any
 import json
 from datasets import load_dataset
+from sparc.prompt import generate_prompt
+from sparc.validation import extract_solution_path, validate_solution
 
 
-class StepGame(BaseDataset):
+class SPaRC(BaseDataset):
     """
-    StepGame Dataset
+    SPaRC Dataset
     """
 
-    name: str = "StepGame"
-    data_source: str = "data/stepgame_data.jsonl"
+    name: str = "SPaRC"
+    data_source: str = "data/sparc_data.jsonl"
     batch_possible: bool = True
 
-    system_prompt: str = (
-        "You are a Spatial Reasoning Expert. Answer the question based on the story."
-    )
+    system_prompt: str = r"You are an expert at solving puzzles games."
 
     def load_data(self, **kwargs) -> Iterable[Dict[str, Any]]:
         """
-        Tries to load the StepGame dataset from a JSONL file.
+        Tries to load the SPaRC dataset from a JSONL file.
         If that fails, it attempts to download it from HuggingFace using the datasets library.
         """
         try:
@@ -28,31 +28,17 @@ class StepGame(BaseDataset):
                     yield json.loads(line)
         except FileNotFoundError:
             # If the file is not found, load from HuggingFace datasets and save locally
-            ds = load_dataset("ZhengyanShi/StepGame", split="test")
-            options = [opt.strip().lower() for opt in ds.unique("label")]
+            ds = load_dataset("lkaesberg/SPaRC", "all", split="test")
+            index = 0
 
             # Add index to each item and save
-            index = 0
-            samples = {str(k): 0 for k in range(1, 11)}
-            samples_per_k = 50  # k from 1 to 10 makes 500 samples
             with open(self.data_source, "w", encoding="utf-8") as f:
                 for item in ds:
-                    k = str(item["k_hop"])
-                    if samples[k] >= samples_per_k:
-                        continue
-                    else:
-                        samples[k] += 1
-                        line = {
-                            "index": index,
-                            "k_hop": k,
-                            "story": item["story"],
-                            "question": item["question"],
-                            "options": options,
-                            "label": item["label"],
-                        }
-                        f.write(json.dumps(line, ensure_ascii=False) + "\n")
-                        index += 1
-                    yield line
+                    item = dict(item)
+                    item["index"] = index
+                    f.write(json.dumps(item, ensure_ascii=False) + "\n")
+                    index += 1
+                    yield item
 
     def to_prompt(self, item: Dict[str, Any]) -> str:
         """
@@ -63,7 +49,7 @@ class StepGame(BaseDataset):
         Returns:
             A string prompt for the language model.
         """
-        return f"Story:\n{'\n'.join(item['story'])}\n\nQuestion:\n{item['question']}\n\nAnswer:"
+        return generate_prompt(item)
 
     def evaluate(self, item: Dict[str, Any]) -> List[Any]:
         """
@@ -74,11 +60,15 @@ class StepGame(BaseDataset):
         Returns:
             A dictionary mapping item indices to evaluation results (True/False).
         """
-        ground_truth = item["label"]
-
-        return [
-            response.strip().lower() == ground_truth for response in item["responses"]
-        ]
+        # See https://github.com/lkaesberg/SPaRC for evaluation details
+        puzzle = item.copy()
+        puzzle.pop("responses")
+        results = []
+        for response in item["responses"]:
+            extracted_path = extract_solution_path(response, puzzle)
+            is_correct = validate_solution(extracted_path, puzzle)
+            results.append(is_correct)
+        return results
 
     def aggregate(self, dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -91,20 +81,17 @@ class StepGame(BaseDataset):
         """
         if not dataset:
             raise ValueError("Dataset is empty. Cannot aggregate results.")
-        scores = {str(k): [] for k in range(1, 11)}
-        total_scores = []
+        overall = []
+        l = len(dataset)
+        by_difficulty = {str(k): [] for k in range(1, 6)}
         for item in dataset:
             mean_score = sum(item["scores"]) / len(item["scores"])
-            scores[item["k_hop"]].append(mean_score)
-            total_scores.append(mean_score)
+            by_difficulty[str(item["difficulty_level"])].append(mean_score)
+            overall.append(mean_score)
 
-        l = len(total_scores)
-        acc = sum(total_scores) / l
-        std = (
-            (sum((s - acc) ** 2 for s in total_scores) / (l - 1)) ** 0.5 if l > 1 else 0
-        )
+        acc = sum(overall) / l
+        std = (sum((s - acc) ** 2 for s in overall) / (l - 1)) ** 0.5 if l > 1 else 0
         se = std / (l**0.5)
-
         return {
             "total": {
                 "accuracy": acc,
@@ -113,10 +100,7 @@ class StepGame(BaseDataset):
                 "count": l,
             },
             "by_difficulty": {
-                k: {
-                    "accuracy": (sum(v) / len(v) if len(v) > 0 else 0.0),
-                    "count": len(v),
-                }
-                for k, v in scores.items()
+                k: {"accuracy": (sum(v) / len(v) if v else 0), "count": len(v)}
+                for k, v in by_difficulty.items()
             },
         }

@@ -12,6 +12,30 @@ def find_last_digit(response):
     return None
 
 
+def navigation(response):
+    # Determine cutoff point (after newline or </answer> tag)
+    cutoff = (
+        response.find("\n")
+        if "\n" in response
+        else response.find("</answer>") if "</answer>" in response else 0
+    )
+    response_end = response[cutoff:]
+
+    # Try to find the last digit inside () first, searching from the back
+    paren_match = re.search(r"\(([^)]*)\)(?!.*\()", response_end)
+    if paren_match:
+        paren_content = paren_match.group(1)
+        for char in reversed(paren_content):
+            if char.isdigit():
+                return char
+
+    # Fall back to last digit in response after newline or </answer>
+    for char in reversed(response_end):
+        if char.isdigit():
+            return char
+    return None
+
+
 def trajectory_classification(response):
     pattern = r"car|bike|bicycle|pedestrian"
     mapping = {"car": 1, "bike": 2, "bicycle": 2, "pedestrian": 3}
@@ -115,7 +139,7 @@ result_parser = {
     "trajectory_classification": trajectory_classification,
     "trajectory_prediction": trajectory_prediction,
     "flow_prediction": flow_prediction,
-    "navigation": find_last_digit,
+    "navigation": navigation,
     "road_level_judgment": find_last_digit,
     "rush_hour_detection": yes_or_no,
     "taxi_occupancy_detection": yes_or_no,
