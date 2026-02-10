@@ -29,7 +29,7 @@ pip install space-glue
 ### From Source
 
 ```bash
-git clone https://github.com/your-username/SpaCE-GLUE.git
+git clone https://github.com/olehae/SpaCE-GLUE.git
 cd SpaCE-GLUE
 pip install -e .
 ```
@@ -185,18 +185,18 @@ logging:
 
 SpaCE-GLUE includes the following spatial reasoning benchmarks:
 
-| Dataset | Class Path | Description |
+| Dataset | Class Path | Sources |
 |---------|------------|-------------|
-| **bAbI** | `data.bAbI.bAbI` | Facebook's bAbI tasks (spatial subset) |
-| **GeoGramBench** | `data.GeoGramBench.GeoGramBench` | Geographic grammar benchmark |
-| **GRASP** | `data.GRASP.GRASP` | Grounded Reasoning about Spatial Prepositions |
-| **PLUGH** | `data.PLUGH.PLUGH` | Text adventure spatial reasoning |
-| **RoomSpace** | `data.RoomSpace.RoomSpace` | Room-based spatial reasoning |
-| **SPaRC** | `data.SPaRC.SPaRC` | Spatial Reasoning Compositionally |
-| **SpartQA** | `data.SpartQA.SpartQA` | Spatial Question Answering |
-| **SpatialEval** | `data.SpatialEval.SpatialEval` | Spatial evaluation benchmark |
-| **STBench** | `data.STBench.STBench` | Spatial-Temporal benchmark |
-| **StepGame** | `data.StepGame.StepGame` | Multi-hop spatial reasoning |
+| **bAbI** | `data.bAbI.bAbI` | [Paper](https://arxiv.org/pdf/1502.05698) [Data](https://huggingface.co/datasets/facebook/babi_qa)|
+| **GeoGramBench** | `data.GeoGramBench.GeoGramBench` | [Paper](https://arxiv.org/pdf/2505.17653) [Data](https://huggingface.co/datasets/LiAuto-DSR/GeoGramBench) |
+| **GRASP** | `data.GRASP.GRASP` | [Paper](https://arxiv.org/pdf/2407.01892) [Data](https://github.com/jasontangzs0/GRASP) |
+| **PLUGH** | `data.PLUGH.PLUGH` | [Paper](https://arxiv.org/pdf/2408.04648) [Data](https://github.com/altsoph/PLUGH) |
+| **RoomSpace** | `data.RoomSpace.RoomSpace` | [Paper](https://arxiv.org/pdf/2405.15064) [Data](https://huggingface.co/datasets/Fangjun/RoomSpace) |
+| **SPaRC** | `data.SPaRC.SPaRC` | [Paper](https://arxiv.org/pdf/2505.16686) [Data](https://huggingface.co/datasets/lkaesberg/SPaRC) |
+| **SpartQA** | `data.SpartQA.SpartQA` | [Paper](https://arxiv.org/pdf/2104.05832) [Data](https://huggingface.co/datasets/tasksource/spartqa-mchoice) |
+| **SpatialEval** | `data.SpatialEval.SpatialEval` | [Paper](https://arxiv.org/pdf/2406.14852) [Data](https://huggingface.co/datasets/MilaWang/SpatialEval) |
+| **STBench** | `data.STBench.STBench` | [Paper](https://arxiv.org/pdf/2406.19065) [Data](https://github.com/LwbXc/STBench) |
+| **StepGame** | `data.StepGame.StepGame` | [Paper](https://arxiv.org/pdf/2204.08292) [Data](https://huggingface.co/datasets/ZhengyanShi/StepGame) |
 
 ---
 
@@ -229,9 +229,8 @@ For direct local inference using vLLM.
 
 ---
 
-## Example Configurations
+## Example Configuration
 
-### Full Benchmark Run
 
 ```yaml
 # SpaCE-GLUE Evaluation Configuration
