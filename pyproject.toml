@@ -71,3 +71,8 @@ dependencies = [
 
 [project.scripts]
 space-glue = "space_glue.cli:main"
+
+# Only package space_glue. Without this, setuptools refuses to build as soon as
+# other top-level directories (data/, results/, slurm/) exist next to it.
+[tool.setuptools.packages.find]
+include = ["space_glue*"]

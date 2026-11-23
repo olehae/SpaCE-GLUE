@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+.env
+
+# Created by SpaCE-GLUE runs
+data/
+results/
+
+# Slurm job output and container images
+slurm-*.out
+slurm-*.log
+*.sif

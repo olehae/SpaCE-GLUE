@@ -72,6 +72,11 @@ export OPENAI_API_KEY="your-api-key"
 space-glue --config config.yaml
 ```
 
+### Running on a Slurm cluster (GWDG SCC)
+
+Ready-to-use job scripts for the GWDG Scientific Compute Cluster, including a
+CPU-only smoke test, are in [`slurm/`](slurm/README.md).
+
 
 ## Configuration
 

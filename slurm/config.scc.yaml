@@ -1,0 +1,37 @@
+# SpaCE-GLUE configuration used by the SCC job scripts in this directory.
+#
+# The ${...} values are exported by the job scripts (scc_vllm.sbatch and
+# scc_smoke_test.sbatch), so the same file works for both. Copy this file and
+# pass it with `sbatch --export=ALL,CONFIG=my_config.yaml ...` to change the
+# datasets or evaluation settings.
+
+model:
+  class: "space_glue.models.openai_model.OpenAIModel"
+  params:
+    name: "${SPACE_GLUE_MODEL}"
+    base_url: "${SPACE_GLUE_BASE_URL}"
+    api_key: "${SPACE_GLUE_API_KEY}"
+
+datasets:
+  - class: "space_glue.data.GeoGramBench.GeoGramBench"
+  - class: "space_glue.data.GRASP.GRASP"
+  - class: "space_glue.data.PLUGH.PLUGH"
+  - class: "space_glue.data.RoomSpace.RoomSpace"
+  - class: "space_glue.data.SPaRC.SPaRC"
+  - class: "space_glue.data.SpatialEval.SpatialEval"
+  - class: "space_glue.data.STBench.STBench"
+  - class: "space_glue.data.StepGame.StepGame"
+  # The download sources of these two datasets are currently broken (see
+  # "Known issues" in slurm/README.md). Enable them once data/babi_data.jsonl
+  # and data/spartqa_data.jsonl exist, and add one entry each to `runs` below.
+  # - class: "space_glue.data.bAbI.bAbI"
+  # - class: "space_glue.data.SpartQA.SpartQA"
+
+evaluation:
+  results_dir: "${SPACE_GLUE_RESULTS_DIR}"
+  batch_size: 32
+  # one entry per dataset: how often each item is sent to the model
+  runs: [1, 1, 1, 1, 1, 1, 1, 1]
+
+logging:
+  level: "INFO"
